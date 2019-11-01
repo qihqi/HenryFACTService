@@ -8,7 +8,7 @@ olefile==0.44
 Pillow==6.2.0
 pkg-resources==0.0.0
 python-Levenshtein==0.12.0
-requests==2.10.0
+requests==2.20.0
 SQLAlchemy==1.2
 uwsgidecorators==1.1.0
 
