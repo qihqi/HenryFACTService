@@ -1,6 +1,6 @@
 barcode==0.5.1
 Beaker==1.8.0
-bottle==0.12.19
+bottle==0.12.20
 funcsigs==1.0.2
 Jinja2>=2.10.1
 MarkupSafe==0.23
