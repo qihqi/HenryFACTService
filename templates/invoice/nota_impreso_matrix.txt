@@ -1,0 +1,41 @@
+RUC: {{extra.ruc}}
+R.I.D.E de FACTURA
+    ELECTRONICA
+No. 001-001-{{inv.meta.codigo}}
+{{extra.name}}
+Direccion:
+{{extra.address}}
+------------------------
+Cliente: {{inv.meta.client.fullname}}
+RUC/CI: {{inv.meta.client.codigo}}
+Direccion: {{inv.meta.client.direccion}}
+------------------------
+descripcion
+Cant x Pre.uni = subtotal
+------------------------
+{%for i in inv.items %}{{format_invoice_line(i, 25)}}
+{% endfor %}
+------------------------
+{{left_right_just('Subtotal:', '{:02}'.format(value_from_cents(inv.meta.subtotal)), 25)}}
+{{left_right_just('Descuento:', '{:02}'.format(value_from_cents(inv.meta.discount)), 25)}}
+{{left_right_just('T. Neto:', '{:02}'.format(value_from_cents(inv.meta.subtotal-inv.meta.discount)), 25)}}
+{{left_right_just('{}% IVA:'.format(inv.meta.tax_percent),
+                  '{:02}'.format(value_from_cents(inv.meta.tax)), 25)}}
+{{left_right_just('TOTAL:', '{:02}'.format(value_from_cents(inv.meta.total)), 25)}}
+------------------------
+DOCUMENTO ELECTRONICO
+Estado: {{extra.status}}
+Ambiente: {{ extra.ambiente }}
+Emision: NORMAL
+Fecha de emision:
+  {{inv.meta.timestamp.date().isoformat()}}
+Numero Autorizacion:
+{{ extra.access_code }}
+Clave Aceso:
+{{ extra.access_code }}
+------------------------
+
+
+
+
+           .
