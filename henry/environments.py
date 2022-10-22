@@ -33,7 +33,7 @@ def shorten_to(line, max_line_size):
     tokens = line.split()
     new_toks = [t[:5] for t in tokens]
     new_line = ' '.join(new_toks)
-    if new_line > max_line_size:
+    if len(new_line) > max_line_size:
         new_line = new_line[:max_line_size]
     return new_line
 

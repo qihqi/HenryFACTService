@@ -16,9 +16,11 @@ Cant x Pre.uni = subtotal
 {%for i in inv.items %}{{format_invoice_line(i, 25)}}
 {% endfor %}
 ------------------------
-{{left_right_just('Subtotal:', '{:02}'.format(value_from_cents(inv.meta.subtotal)), 25)}}
+{{left_right_just('Suma:', '{:02}'.format(value_from_cents(inv.meta.subtotal)), 25)}}
 {{left_right_just('Descuento:', '{:02}'.format(value_from_cents(inv.meta.discount)), 25)}}
-{{left_right_just('T. Neto:', '{:02}'.format(value_from_cents(inv.meta.subtotal-inv.meta.discount)), 25)}}
+{{left_right_just('Subtotal {}%:'.format(inv.meta.tax_percent),
+                  '{:02}'.format(value_from_cents(inv.meta.subtotal-inv.meta.discount)), 25)}}
+{{left_right_just('Subtotal 0%:', '0.00', 25)}}
 {{left_right_just('{}% IVA:'.format(inv.meta.tax_percent),
                   '{:02}'.format(value_from_cents(inv.meta.tax)), 25)}}
 {{left_right_just('TOTAL:', '{:02}'.format(value_from_cents(inv.meta.total)), 25)}}

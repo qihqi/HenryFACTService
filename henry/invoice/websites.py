@@ -51,6 +51,7 @@ def make_invoice_wsgi(
         corp_ws):
     w = Bottle()
     dbcontext = DBContext(dbapi.session)
+    file_manager = invapi.filemanager
 
     def alm_id_to_ws(alm_id):
         if alm_id == 1:
