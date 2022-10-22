@@ -302,6 +302,38 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
             column=column,
             prodname=prod.nombre,
             price=price)
+
+    @w.get('/app/modificar_almacenes')
+    @dbcontext
+    @auth_decorator(0)
+    def mod_alm_direccion():
+        almacenes = dbapi.search(Store, **{'ruc-ne': None})
+        temp = jinja_env.get_template('prod/modificar_almacen.html')
+        return temp.render(almacenes=almacenes)
+
+    @w.post('/app/modificar_almacen/<uid>')
+    @dbcontext
+    @auth_decorator(0)
+    def mod_alm_post(uid):
+        almacenes = dbapi.search(Store, **{'ruc-ne': None})
+        uid = int(uid)
+        alm = [a for a in almacenes if a.almacen_id == uid]
+        temp = jinja_env.get_template('prod/modificar_almacen.html')
+        if not alm:
+            return temp.render(almacenes=almacenes,
+                               message='Almacen con id {} no existe'.format(uid))
+        alm = alm[0]
+
+        dir = request.forms.get('address')
+        name = request.forms.get('nombre')
+        update_dict = {}
+        if name:
+            update_dict['nombre'] = name
+        if dir:
+            update_dict['address'] = dir
+        dbapi.update(alm, update_dict)
+        return temp.render(almacenes=almacenes, message='Cambios Guardado')
+
     return w
 
 
