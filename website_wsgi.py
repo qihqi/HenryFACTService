@@ -29,8 +29,8 @@ forward_transaction = None
 invoiceapp = make_invoice_wsgi(
         dbapi, auth_decorator, actionlogged, invapi, pedidoapi, jinja_env,
         workqueue=forward_transaction,
-        file_manager=FileService(REMOTE_INVOICE_PATH),
-        quinal_ws=quinal_ws, corp_ws=corp_ws)
+        quinal_ws=quinal_ws,
+        corp_ws=corp_ws)
 userapp = userwsgi(dbcontext, auth_decorator, jinja_env, dbapi, actionlogged)
 invapp = make_inv_wsgi(dbapi, jinja_env, actionlogged, auth_decorator, transapi, revisionapi,
                        revisionapi=None)

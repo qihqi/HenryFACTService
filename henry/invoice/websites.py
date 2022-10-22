@@ -47,7 +47,6 @@ def make_invoice_wsgi(
         pedidoapi,
         jinja_env,
         workqueue,
-        file_manager,
         quinal_ws,
         corp_ws):
     w = Bottle()
