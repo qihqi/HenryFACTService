@@ -45,6 +45,8 @@ class WsEnvironment:
         text = str(ans)
         is_auth = False
         if (ans is not None
+                and hasattr(ans, 'autorizaciones')
+                and hasattr(ans.autorizaciones, 'autorizacion')
                 and ans.autorizaciones.autorizacion
                 and 'estado' in ans.autorizaciones.autorizacion[0]):
             is_auth = (
