@@ -22,7 +22,7 @@ from henry.users.dao import User, Client
 from .coreschema import NNota
 from .dao import Invoice, NotaExtra, SRINota, SRINotaStatus, CommResult
 from .util import compute_access_code
-from .util import get_or_generate_xml_paths, sri_nota_to_nota_and_extra
+from .util import get_or_generate_xml_paths, sri_nota_to_extra, sri_nota_from_nota
 
 
 __author__ = 'han'
@@ -183,6 +183,7 @@ def make_nota_api(
 
         return {'codigo': inv.meta.uid}
 
+
     @api.put('{}/nota/<uid>'.format(url_prefix))
     @dbcontext
     @auth_decorator(0)
@@ -199,34 +200,19 @@ def make_nota_api(
             nota_extra.last_change_time = datetime.datetime.now()
             dbapi.create(nota_extra)
 
-        sri_nota = dbapi.getone(
-            SRINota,
-            almacen_ruc=inv.meta.almacen_ruc,
-            orig_codigo=inv.meta.codigo)
-        if sri_nota is None:
-            sri_nota = SRINota()
-            sri_nota.uid = uid
-            sri_nota.almacen_id = inv.meta.almacen_id
-            sri_nota.almacen_ruc = inv.meta.almacen_ruc
-            sri_nota.orig_codigo = inv.meta.codigo
-            sri_nota.orig_timestamp = inv.meta.timestamp
-            sri_nota.timestamp_received = datetime.datetime.now()
-            sri_nota.status = SRINotaStatus.CREATED
-            sri_nota.total = Decimal(inv.meta.total) / 100
-            sri_nota.tax = Decimal(inv.meta.tax) / 100
-            sri_nota.discount = Decimal(inv.meta.discount) / 100
-            if inv.meta.client:
-                sri_nota.buyer_ruc = inv.meta.client.codigo
-                sri_nota.buyer_name = inv.meta.client.fullname
-            sri_nota.json_inv_location = inv.filepath_format
-            sri_nota.xml_inv_location = ''
-            sri_nota.xml_inv_signed_location = ''
-            sri_nota.all_comm_path = ''
-            ws = alm_id_to_ws(sri_nota.almacen_id)
-            sri_nota.access_code = compute_access_code(inv, ws)
-            dbapi.create(sri_nota)
+        access_code = ''
+        if inv.meta.almacen_id in (1, 3):
+            sri_nota = dbapi.getone(
+                SRINota,
+                almacen_ruc=inv.meta.almacen_ruc,
+                orig_codigo=inv.meta.codigo)
+            if sri_nota is None:
+                ws = alm_id_to_ws(inv.meta.almacen_id)
+                sri_nota = sri_nota_from_nota(inv, ws)
+                dbapi.create(sri_nota)
+            access_code = sri_nota.access_code
 
-        return {'status': inv.meta.status, 'access_code': sri_nota.access_code}
+        return {'status': inv.meta.status, 'access_code': access_code}
 
     @api.get(url_prefix + '/nota/<inv_id>')
     @dbcontext
@@ -260,21 +246,27 @@ def make_nota_api(
     @dbcontext
     def get_nota_print(uid):
         sri_nota = dbapi.get(uid, SRINota)
+        inv = invapi.get_doc(uid)
+        if inv.meta.client.codigo == 'NA':
+            inv.meta.client.codigo = '9999999999999'
+
+        ws = alm_id_to_ws(inv.meta.almacen_id)
         if sri_nota is None:
-            abort(404, 'No existe')
+            sri_nota = sri_nota_from_nota(inv, ws)
 
         store = dbapi.getone(Store, almacen_id=sri_nota.almacen_id)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
-        doc, extra = sri_nota_to_nota_and_extra(
-            sri_nota, store, file_manager, ws)
+        extra = sri_nota_to_extra(sri_nota, store, ws)
         temp = jinja_env.get_template('invoice/nota_impreso_matrix.txt')
-        return temp.render(inv=doc, extra=extra)
+        return temp.render(inv=inv, extra=extra)
 
     # this function need to be idenpotent
     @api.put('/api/post_sri_nota/<uid>')
     @dbcontext
     def post_sri_nota(uid):
         sri_nota = dbapi.get(uid, SRINota)
+        if sri_nota is None or sri_nota.almacen_id not in (1, 3):
+            return {'status': 'failed', 'msg': 'Nota invalida'}
+
         ws = alm_id_to_ws(sri_nota.almacen_id)
         relpath, signed_path = get_or_generate_xml_paths(
             sri_nota, file_manager, jinja_env, dbapi, ws)

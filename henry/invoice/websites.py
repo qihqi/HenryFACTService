@@ -32,7 +32,8 @@ from .coreapi import get_inv_db_instance
 from .util import (
     get_or_generate_xml_paths,
     generate_xml_paths,
-    sri_nota_to_nota_and_extra,
+    sri_nota_to_extra,
+    sri_nota_from_nota,
     REMAP_SRI_STATUS
 )
 
@@ -405,16 +406,16 @@ def make_invoice_wsgi(
     @auth_decorator(0)
     def get_nota_print(uid):
         sri_nota = dbapi.get(uid, SRINota)
+        inv = invapi.get_doc(uid)
         if sri_nota is None:
-            abort(404, 'No existe')
-
+            ws = alm_id_to_ws(inv.meta.almacen_id)
+            sri_nota = sri_nota_from_nota(inv, ws)
         store = dbapi.getone(Store, almacen_id=sri_nota.almacen_id)
         ws = alm_id_to_ws(sri_nota.almacen_id)
-        doc, extra = sri_nota_to_nota_and_extra(
-            sri_nota, store, file_manager, ws)
+        extra = sri_nota_to_extra(sri_nota, store, ws)
         temp = jinja_env.get_template('invoice/nota_impreso.html')
         response.headers['Cache-Control'] = 'no-cache'
-        return temp.render(inv=doc, extra=extra)
+        return temp.render(inv=inv, extra=extra)
 
     @w.post('/app/api/gen_xml/<uid>')
     @dbcontext

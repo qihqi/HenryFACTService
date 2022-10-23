@@ -1,13 +1,13 @@
-import json
 from decimal import Decimal
 from typing import Optional, Dict, cast, List
 import zeep
 import barcode
+import datetime
 
 from henry.xades import xades
 from henry.base.dbapi import DBApiGeneric
 from henry.base.common import HenryException
-from henry.invoice.dao import Invoice, SRINota, SRINotaStatus
+from henry.invoice.dao import SRINota, SRINotaStatus, Invoice
 from henry.product.dao import Store
 from henry import constants
 
@@ -161,7 +161,7 @@ def inv_to_sri_dict(inv: Invoice, sri_nota: SRINota,
         if inv.meta.discount_percent > 0:
             additional_desc = total_sin_impuesto * inv.meta.discount_percent / 100
             total_sin_impuesto -= additional_desc
-            desc += additinal_desc
+            desc += additional_desc
         total_impuesto = inv.meta.tax_percent * total_sin_impuesto / 100
         item_dict = {
             'id': item.prod.prod_id,
@@ -222,25 +222,37 @@ def get_or_generate_xml_paths(
     return sri_nota.xml_inv_location, sri_nota.xml_inv_signed_location
 
 
-def sri_nota_to_nota_and_extra(
+def sri_nota_from_nota(inv: Invoice, ws):
+    sri_nota = SRINota()
+    sri_nota.uid = inv.meta.uid
+    sri_nota.almacen_id = inv.meta.almacen_id
+    sri_nota.almacen_ruc = inv.meta.almacen_ruc
+    sri_nota.orig_codigo = inv.meta.codigo
+    sri_nota.orig_timestamp = inv.meta.timestamp
+    sri_nota.timestamp_received = datetime.datetime.now()
+    sri_nota.status = SRINotaStatus.CREATED
+    sri_nota.total = Decimal(inv.meta.total) / 100
+    sri_nota.tax = Decimal(inv.meta.tax) / 100
+    sri_nota.discount = Decimal(inv.meta.discount) / 100
+    if inv.meta.client:
+        sri_nota.buyer_ruc = inv.meta.client.codigo
+        sri_nota.buyer_name = inv.meta.client.fullname
+    sri_nota.json_inv_location = inv.filepath_format
+    sri_nota.xml_inv_location = ''
+    sri_nota.xml_inv_signed_location = ''
+    sri_nota.all_comm_path = ''
+    sri_nota.access_code = compute_access_code(inv, ws)
+    return sri_nota
+
+
+def sri_nota_to_extra(
         sri_nota: SRINota,
         store: Store,
-        file_manager,
         ws: WsEnvironment):
-    json_env = json.loads(
-        file_manager.get_file(sri_nota.json_inv_location))
-    doc = Invoice.deserialize(json_env)
-    if not doc:
-        raise HenryException('Documento con codigo {} no existe'.format(
-            sri_nota.uid))
-
     bcode = barcode.Gs1_128(sri_nota.access_code)
     svg_code = bcode.render().decode('utf-8')
     index = svg_code.find('<svg')
     svg_code = svg_code[index:]
-    if doc.meta.client.codigo == 'NA':
-        doc.meta.client.codigo = '9999999999999'
-
     extra = {
         'ambiente': ws.name,
         'name': store.nombre,
@@ -250,4 +262,4 @@ def sri_nota_to_nota_and_extra(
         'svg_code': svg_code,
         'status': REMAP_SRI_STATUS.get(sri_nota.status or '', 'NO ENVIADO')
     }
-    return doc, extra
+    return extra
