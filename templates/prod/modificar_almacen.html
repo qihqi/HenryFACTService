@@ -7,8 +7,8 @@
 {% for alm in almacenes %}
 <form method="post" action="/app/modificar_almacen/{{alm.almacen_id}}" >
     <ul> <b>{{alm.almacen_id}}: {{alm.ruc}}</b>
-        <li>Nombre: <input type="text" name="nombre" maxlength="20" value="{{alm.nombre}}"/></li>
-        <li>Direccion: <input type="text" name="address" maxlength="20" value="{{alm.address}}"/></li>
+        <li>Nombre: <input type="text" name="nombre" value="{{alm.nombre}}"/></li>
+        <li>Direccion: <input type="text" name="address" value="{{alm.address}}"/></li>
         <li><input type="submit" maxlength="20" value="guardar"/></li>
     </ul>
     <hr/>
