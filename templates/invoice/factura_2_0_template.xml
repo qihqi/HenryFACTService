@@ -43,20 +43,20 @@
             <codigoPrincipal>{{d.id}}</codigoPrincipal>
             <descripcion> {{ d.nombre }}</descripcion>
             <cantidad>{{ d.cantidad }}</cantidad>
-            <precioUnitario>{{ d.precio }}</precioUnitario>
+            <precioUnitario>{{  "%.2f" |format( d.precio) }}</precioUnitario>
             <descuento>
-                {{ d.descuento }}
+                {{  "%.2f" |format(d.descuento) }}
             </descuento>
             <precioTotalSinImpuesto>
-                {{ d.total_sin_impuesto }}
+                {{ "%.2f" |format(d.total_sin_impuesto) }}
             </precioTotalSinImpuesto>
             <impuestos>
                 <impuesto>
                     <codigo>2</codigo> <!-- 2 = IVA -->
                     <codigoPorcentaje>{{ 2 if tax_percent == 12 else 3 }}</codigoPorcentaje> <!-- 2 = 12%, 3 = 14% -->
                     <tarifa>{{ tax_percent }}</tarifa>
-                    <baseImponible>{{ '%0.2f' % d.total_sin_impuesto }}</baseImponible>
-                    <valor>{{  '%0.2f' % d.total_impuesto }}</valor>
+                    <baseImponible>{{ '%.2f'|format(d.total_sin_impuesto) }}</baseImponible>
+                    <valor>{{  '%.2f'|format( d.total_impuesto) }}</valor>
                 </impuesto>
             </impuestos>
         </detalle>
