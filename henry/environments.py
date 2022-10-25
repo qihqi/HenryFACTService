@@ -52,6 +52,10 @@ def format_invoice_line(row, max_line_size):
     return '{}\n{}'.format(
             desc, left_right_just(first_elem, second_elem, max_line_size))
 
+def left_right_number(first, second, max_line_size):
+    num = value_from_cents(second)
+    second_str = '{:.2f}'.format(num)
+    return left_right_just(first, second_str, max_line_size)
 
 
 def make_jinja_env(template_paths):
@@ -71,5 +75,6 @@ def make_jinja_env(template_paths):
         'normalize_decimal': normalize_decimal,
         'format_invoice_line': format_invoice_line,
         'left_right_just': left_right_just,
+        'left_right_number': left_right_number,
     })
     return jinja_env

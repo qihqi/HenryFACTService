@@ -16,14 +16,13 @@ Cant x Pre.uni = subtotal
 {%for i in inv.items %}{{format_invoice_line(i, 25)}}
 {% endfor %}
 ------------------------
-{{left_right_just('Suma:', '{:02}'.format(value_from_cents(inv.meta.subtotal)), 25)}}
-{{left_right_just('Descuento:', '{:02}'.format(value_from_cents(inv.meta.discount)), 25)}}
-{{left_right_just('Subtotal {}%:'.format(inv.meta.tax_percent),
-                  '{:02}'.format(value_from_cents(inv.meta.subtotal-inv.meta.discount)), 25)}}
-{{left_right_just('Subtotal 0%:', '0.00', 25)}}
-{{left_right_just('{}% IVA:'.format(inv.meta.tax_percent),
-                  '{:02}'.format(value_from_cents(inv.meta.tax)), 25)}}
-{{left_right_just('TOTAL:', '{:02}'.format(value_from_cents(inv.meta.total)), 25)}}
+{{left_right_number('Suma:', inv.meta.subtotal, 25)}}
+{{left_right_number('Descuento:', inv.meta.discount, 25)}}
+{{left_right_number('Subtotal {}%:'.format(inv.meta.tax_percent),
+                     inv.meta.subtotal-inv.meta.discount, 25)}}
+{{left_right_number('Subtotal 0%:', '0.00', 25)}}
+{{left_right_number('{}% IVA:'.format(inv.meta.tax_percent), inv.meta.tax, 25)}}
+{{left_right_number('TOTAL:', inv.meta.total, 25)}}
 ------------------------
 DOCUMENTO ELECTRONICO
 Estado: {{extra.status}}
