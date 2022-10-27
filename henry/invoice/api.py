@@ -77,7 +77,7 @@ def make_nota_all(url_prefix: str, dbapi: DBApiGeneric,
         is_prod = loaded['is_prod']  #
         if action == 'create':
             inv = invapi.get_doc(uid)
-            if inv:
+            if not inv:
                 inv = Invoice.deserialize(inv_json)
                 invapi.create(inv)
             sri_nota = dbapi.get(int(uid), SRINota)
