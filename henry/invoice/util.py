@@ -200,8 +200,9 @@ def generate_xml_paths(sri_nota: SRINota,
         return None, None
     xml_text = jinja_env.get_template(
         'invoice/factura_2_0_template.xml').render(xml_dict)
-    xml_inv_location = '{}/{}.xml'.format(sri_nota.orig_timestamp.isoformat(),
-                                          sri_nota.access_code)
+    xml_inv_location = '{}/{}.xml'.format(
+            sri_nota.orig_timestamp.date().isoformat(),
+            sri_nota.access_code)
     file_manager.put_file(xml_inv_location, xml_text)
     sri_nota.xml_inv_location = xml_inv_location
     assert sri_nota.almacen_id
