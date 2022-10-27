@@ -43,7 +43,7 @@ def auth_decorator(x):
 if ENV == 'prod':
     auth_decorator = AuthDecorator(LOGIN_URL, sessionmanager)
 
-fileservice = FileService(os.path.join(DATA_ROOT, 'inv_logs'))
+fileservice = FileService(REMOTE_INVOICE_PATH)
 inventoryapi = InventoryApi(FileService(TRANSACTION_PATH))
 invmomanager = InvMovementManager(dbapi, fileservice, inventoryapi)
 invapi = DocumentApi(sessionmanager, fileservice,
