@@ -4,11 +4,11 @@ R.I.D.E de FACTURA
 No. 001-001-{{inv.meta.codigo}}
 {{extra.name}}
 Direccion:
-{{extra.address}}
+{{strip_accents(extra.address or '')}}
 ------------------------
-Cliente: {{inv.meta.client.fullname}}
-RUC/CI: {{inv.meta.client.codigo}}
-Direccion: {{inv.meta.client.direccion}}
+Cliente: {{ strip_accents(inv.meta.client.fullname) }}
+RUC/CI: {{ inv.meta.client.codigo }}
+Direccion: {{ strip_accents(inv.meta.client.direccion or '') }}
 ------------------------
 descripcion
 Cant x Pre.uni = subtotal

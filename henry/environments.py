@@ -4,6 +4,7 @@ from decimal import Decimal
 from jinja2 import Environment, FileSystemLoader
 from henry.invoice.dao import PaymentFormat
 from henry.misc import id_type, fix_id, abs_string, value_from_cents, get_total
+from henry.common import strip_accents
 
 
 def my_finalize(x):
@@ -46,6 +47,7 @@ def left_right_just(first, second, max_line_size):
 def format_invoice_line(row, max_line_size):
     # make sure product is within max_line_size
     desc = shorten_to(row.prod.nombre, max_line_size)
+    desc = strip_accents(desc)
     p = value_from_cents(row.prod.precio1)
     first_elem = '{} x {:.2f}'.format(row.cant, p)
     second_elem = '{:.2f}'.format(row.cant * p)
@@ -76,5 +78,6 @@ def make_jinja_env(template_paths):
         'format_invoice_line': format_invoice_line,
         'left_right_just': left_right_just,
         'left_right_number': left_right_number,
+        'strip_accents': strip_accents,
     })
     return jinja_env

@@ -1,4 +1,3 @@
-from __future__ import division
 from builtins import zip
 from typing import Mapping
 import json
@@ -7,6 +6,7 @@ import base64
 import datetime
 import hashlib
 from decimal import Decimal
+import unicodedata
 
 from bottle import abort
 from Crypto.Cipher import AES
@@ -103,3 +103,11 @@ def aes_decrypt(blob):
     plaintext = cipher.decrypt(cipher_text)
     cipher.verify(tag)
     return plaintext
+
+
+def strip_accents(s: str) -> str:
+    if not s:
+        return ''
+    res = ''.join(c for c in unicodedata.normalize('NFD', s)
+                  if unicodedata.category(c) != 'Mn')
+    return res

@@ -108,7 +108,11 @@ div.fixed {
         <td>{{item.timestamp}}</td>
         <td>{{'PRODUCCION' if item.environment else 'PRUEBA'}}</td>
         <td>{{item.request_type}}</td>
-        <td>{{item.response[0:300]}}</td>
+        <td>
+        <textarea readonly rows="20" cols="60" style="border:none;">
+            {{item.response}}
+        </textarea>
+        </td>
         <td>{{item.status}}</td>
     </tr>
     {% endfor %}

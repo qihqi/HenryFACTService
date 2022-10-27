@@ -157,16 +157,6 @@ def mkgetter(obj: Any) -> Callable:
 
 def decode_str(strobj: bytes) -> str:
     try:
-        # current clientside uses latin1 because that is the
-        # default for apache's httpclient
-        content = strobj.decode('latin1')
-        # latin1 never fails, so make sure that its printable i.e. currect
-        if all(unicodedata.category(c) != 'Cc' for c in content):
-            return content
-    except UnicodeError:
-        pass
-
-    try:
         # Assumes utf8 as catchall
         return strobj.decode('utf-8')
     except UnicodeError:
