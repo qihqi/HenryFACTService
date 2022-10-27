@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nota {{nota.uid}}</title>
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+
+<style>
+
+div.fixed {
+  position: fixed;
+  top: 100px;
+  left: 200px;
+  width: 500px;
+  height: 500px;
+  border: 3px solid #73AD21;
+  background-color: white;
+}
+</style>
+</head>
+
+<body>
+<p>UID: {{ nota.uid }}</p>
+<p>AlmId: {{ nota.almacen_ruc }}</p>
+<p>Codigo: {{ nota.orig_codigo }}</p>
+<p>Cliente: {{ nota.buyer_name }}</p>
+<p>IVa: {{ nota.tax }}</p>
+<p>TOTAL: {{ nota.total }}</p>
+<p>STATUS: {{ nota.status }}</p>
+<p>ES PRODUCCION: {{ 'SI' if nota.is_prod  else 'NO'}}</p>
+<p><a href="/sync/remote_nota_xml/{{nota.uid}}">Bajar el archivo XML</a></p>
+
+<script>
+    function esperar() {
+        $('#esp_area').show();
+        $('.actbutton').prop('disabled', true);
+    }
+    function regresar(){
+        $('#esp_area').hide();
+        $('.actbutton').prop('disabled', false);
+    }
+    function validate_or_authorize(uid, validate) {
+        var url = '';
+        if (validate) {
+            url = '/sync/validate_remote';
+        } else {
+            url = '/sync/authorize_remote';
+        }
+        esperar();
+        $.ajax( {
+            url: url,
+            method: 'POST',
+            data: {uid: uid},
+            success: function() {
+                location.reload();
+            }
+        });
+    }
+    function gen_xml(uid) {
+        var url = '/sync/api/gen_xml/' + uid;
+        esperar();
+        $.ajax( {
+            url: url,
+            method: 'POST',
+            data: {uid: uid},
+            success: function() {
+                location.reload();
+            }
+        });
+    }
+    function enviar(uid) {
+        validate_or_authorize(uid, true);
+    }
+    function autorizar(uid) {
+        validate_or_authorize(uid, false);
+    }
+    function marcar(uid) {
+        var url = '/sync/api/mark_remote_nota_as_valid/' + uid;
+        esperar();
+        $.ajax( {
+            url: url,
+            method: 'PUT',
+            success: function() {
+                location.reload();
+            }
+        });
+    }
+</script>
+
+<button class="actbutton" onclick="gen_xml({{nota.uid}});">Generar XML</button>
+<button class="actbutton" onclick="enviar({{nota.uid}});">Enviar a SRI</button>
+<button class="actbutton" onclick="autorizar({{nota.uid}});">Autorizar </button>
+
+<button class="actbutton" onclick="marcar({{nota.uid}});">Marcar como autorizado</button>
+<div id="esp_area" class="fixed" style="display:none;">
+    <h2 style="margin: auto; text-align: center;">Espere por favor ... </h2>
+</div>
+
+
+<table>
+    <tr>
+        <th>Fecha</th>
+        <th>Ambiente</th>
+        <th>Tipo</th>
+        <th>Respuesta</th>
+        <th>Estado</th>
+    </tr>
+    {% for item in comm_results %}
+    <tr>
+        <td>{{item.timestamp}}</td>
+        <td>{{'PRODUCCION' if item.environment else 'PRUEBA'}}</td>
+        <td>{{item.request_type}}</td>
+        <td>
+        <textarea readonly rows="20" cols="60" style="border:none;">
+            {{item.response}}
+        </textarea>
+        </td>
+        <td>{{item.status}}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+
+<p>================================================</p>
+<textarea readonly rows="50" cols="120" style="border:none;">
+{{ json }}
+</textarea>
+<p>================================================</p>
+<textarea readonly rows="50" cols="120" style="border:none;">
+{{ xml1 }}
+</textarea>
+<p>================================================</p>
+
+</body>
+</html>

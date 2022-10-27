@@ -1,0 +1,39 @@
+{% from "macros.html" import start_end_date_oneline %}
+{% from "macros.html" import selector %}
+<html>
+
+    <head>
+
+    </head>
+
+    <body>
+{% if msg %} <h4>{{ msg }}</h4> {% endif %}
+<form method="get">
+    <p>{{ start_end_date_oneline(old_query.start, old_query.end) }} </p>
+    <p>Almacen: {{ selector(stores, 'almacen_ruc', 'ruc', 'nombre', old_query.almacen_ruc) }} </p>
+    <p>Estado: {{ selector(status, 'status', 'key', 'name', old_query.status) }} </p>
+    <p>  <input type="submit" value="Buscar"/> </p>
+</form>
+
+<table>
+    <tr>
+        <th>codigo</th>
+        <th> Comprador </th>
+        <th> IVA </th>
+        <th> total </th>
+        <th> estado </th>
+        <th> </th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+        <td>{{ row.orig_codigo }}</td>
+        <td>{{ row.buyer_name }}</td>
+        <td>{{ row.tax }}</td>
+        <td>{{ row.total }}</td>
+        <td>{{ row.status }}</td>
+        <td><a href="/sync/remote_nota/{{row.uid}}"> Ver detalles </a></td>
+    </tr>
+    {% endfor %}
+</table>
+    </body>
+</html>
