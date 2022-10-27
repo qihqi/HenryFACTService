@@ -10,13 +10,15 @@ from henry.base.auth import AuthType
 from henry.base.dbapi import DBApiGeneric
 from henry.base.fileservice import FileService
 from henry import constants, common
+from henry.product.dao import Store
 
 from henry.base.serialization import json_dumps
 from henry.base.session_manager import DBContext
 from henry.invoice.dao import SRINota, SRINotaStatus
+from henry.dao.document import DocumentApi
 
 from .dao import Invoice
-from .util import generate_xml_paths
+from .util import generate_xml_paths, sri_nota_from_nota
 
 __author__ = 'han'
 
@@ -52,7 +54,9 @@ def guess_id_type(client_id):
 
 def make_nota_all(url_prefix: str, dbapi: DBApiGeneric,
                   jinja_env: Environment,
-                  file_manager: FileService, auth_decorator: AuthType):
+                  file_manager: FileService,
+                  invapi: DocumentApi,
+                  auth_decorator: AuthType):
 
     api = Bottle()
     dbcontext = DBContext(dbapi.session)
@@ -66,54 +70,29 @@ def make_nota_all(url_prefix: str, dbapi: DBApiGeneric,
             return ''
         msg_decoded = common.aes_decrypt(msg).decode('utf-8')
         loaded = json.loads(msg_decoded)
+
+        uid = loaded['uid']
+        action = loaded['action']  # create, delete
         inv_json = loaded['inv']
-        inv = Invoice.deserialize(inv_json)
+        is_prod = loaded['is_prod']  #
+        if action == 'create':
+            inv = invapi.get_doc(uid)
+            if inv:
+                inv = Invoice.deserialize(inv_json)
+                invapi.create(inv)
+            sri_nota = dbapi.get(int(uid), SRINota)
+            if sri_nota:
+                return {'created': False, 'msg': 'ya exist'}
+            store = dbapi.get(inv.meta.almacen_id, Store)
+            ws = object()
+            ws.name = 'PRODUCCION' if is_prod else 'PRUEBA'
+            sri_nota = sri_nota_from_nota(inv, store, ws)
+            dbapi.create(sri_nota)
+            return {'status': 'created'}
+        if action == 'delete':
+            inv = invapi.get_doc(uid)
+            invapi.delete(inv)
 
-        prefix = os.path.join('remote_nota',
-                              datetime.date.today().isoformat(),
-                              uuid.uuid4().hex)
-
-        file_manager.put_file(prefix + '.json', json_dumps(inv_json))
-
-        # gen xml
-        # inv_xml = ...
-        # file_manager.put_file(prefix + '.xml', inv_xml)
-
-        existing = dbapi.search(
-            SRINota,
-            almacen_ruc=inv.meta.almacen_ruc,
-            orig_codigo=inv.meta.codigo)
-
-        if existing:
-            return {'created': '', 'msg': 'ya exist'}
-
-        row = SRINota()
-        row.almacen_ruc = inv.meta.almacen_ruc
-        row.orig_codigo = inv.meta.codigo
-        row.orig_timestamp = inv.meta.timestamp
-        row.timestamp_received = datetime.datetime.now()
-        row.status = SRINotaStatus.CREATED
-        row.total = inv.meta.total
-        if inv.meta.client:
-            row.buyer_ruc = inv.meta.client.codigo
-            row.buyer_name = inv.meta.client.fullname
-        row.tax = inv.meta.tax
-        row.json_inv_location = prefix + '.json'
-        row.xml_inv_location = ''
-        row.resp1_location = ''
-        row.resp2_location = ''
-        pkey = dbapi.create(row)
-        return {'created': pkey}
-
-    @api.post('{}/gen_xml/<uid>'.format(url_prefix))
-    @dbcontext
-    def gen_xml(uid):
-        uid = int(uid)
-        sri_nota = dbapi.get(uid, SRINota)
-        relpath, signed_path = generate_xml_paths(
-            sri_nota, file_manager, jinja_env, dbapi)
-
-        return {'result': signed_path}
 
     @api.get('{}/remote_nota'.format(url_prefix))
     def get_extended_nota():

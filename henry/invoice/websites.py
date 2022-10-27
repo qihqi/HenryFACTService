@@ -535,4 +535,9 @@ def make_invoice_wsgi(
         dirname, fname = os.path.split(fullpath)
         return static_file(fname, root=dirname, download=fname)
 
+    @w.post('/app/remote_nota_send_all')
+    def send_all_nota():
+       #send_sri_by_date_range(start, end, dbapi, file_manager, alm_id_to_ws, jinja_env):
+       pass
+
     return w
