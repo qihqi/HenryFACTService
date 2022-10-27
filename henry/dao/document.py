@@ -143,8 +143,9 @@ class DocumentApi(object):
             count = self.dbapi.update(doc.meta, {'status': Status.DELETED})
             if count > 0:
                 return doc
-        logging.info('attempt to delete doc {} which is not committed'.format(
-            doc.meta.uid))  # type: ignore
+            logging.info(
+                    'attempt to delete doc {} which is not committed'.format(
+                    doc.meta.uid))  # type: ignore
         return None
 
     def _set_status_and_update_prod_count(

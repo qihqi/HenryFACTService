@@ -308,7 +308,7 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
     @auth_decorator(0)
     def mod_alm_direccion():
         almacenes = dbapi.search(Store, **{'ruc-ne': None})
-        temp = jinja_env.get_template('prod/modificar_almacen.html')
+        temp = jinja_env.get_template('prod/modificar_almacen.html', url_prefix='/app')
         return temp.render(almacenes=almacenes)
 
     @w.post('/app/modificar_almacen/<uid>')
@@ -321,6 +321,7 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
         temp = jinja_env.get_template('prod/modificar_almacen.html')
         if not alm:
             return temp.render(almacenes=almacenes,
+                               url_prefix='/app',
                                message='Almacen con id {} no existe'.format(uid))
         alm = alm[0]
 
@@ -332,7 +333,9 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
         if dir:
             update_dict['address'] = dir
         dbapi.update(alm, update_dict)
-        return temp.render(almacenes=almacenes, message='Cambios Guardado')
+        return temp.render(almacenes=almacenes,
+                           url_prefix='/app',
+                           message='Cambios Guardado')
 
     return w
 

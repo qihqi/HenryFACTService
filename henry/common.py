@@ -74,11 +74,13 @@ def transmetadata_from_form(form: Mapping[str, str]) -> TransMetadata:
     return meta
 
 
-_MODE = AES.MODE_ECB
+_MODE = AES.MODE_EAX
 
 
 def aes_encrypt(text_bytes):
     """Returns a blob that contains(cipher_text, nonce, tag)."""
+    if isinstance(text_bytes, str):
+        text_bytes = text_bytes.encode('utf-8')
     m = hashlib.sha1()
     m.update(constants.AES_KEY.encode('utf-8'))
     key = m.digest()[:16]

@@ -3,19 +3,32 @@ from typing import Optional, Dict, cast, List
 import zeep
 import barcode
 import datetime
+import requests
+import time
 
 from henry.xades import xades
 from henry.base.dbapi import DBApiGeneric
 from henry.base.common import HenryException
-from henry.invoice.dao import SRINota, SRINotaStatus, Invoice
+from henry.base.serialization import json_dumps
+from henry.invoice.dao import SRINota, SRINotaStatus, Invoice, CommResult
 from henry.product.dao import Store
 from henry import constants
+from henry.common import strip_accents, aes_encrypt
 
 REMAP_SRI_STATUS = {
     SRINotaStatus.CREATED: 'NO ENVIADO',
     SRINotaStatus.CREATED_SENT: 'VALIDADO',
     SRINotaStatus.CREATED_SENT_VALIDATED: 'AUTORIZADO',
 }
+
+def extract_auth_status(ans):
+    if (ans is not None
+            and hasattr(ans, 'autorizaciones')
+            and hasattr(ans.autorizaciones, 'autorizacion')
+            and ans.autorizaciones.autorizacion
+            and 'estado' in ans.autorizaciones.autorizacion[0]):
+        return ans.autorizaciones.autorizacion[0].estado
+    return None
 
 
 class WsEnvironment:
@@ -44,14 +57,13 @@ class WsEnvironment:
         ans = self._auth_client.service.autorizacionComprobante(access_code)
         text = str(ans)
         is_auth = False
-        if (ans is not None
-                and hasattr(ans, 'autorizaciones')
-                and hasattr(ans.autorizaciones, 'autorizacion')
-                and ans.autorizaciones.autorizacion
-                and 'estado' in ans.autorizaciones.autorizacion[0]):
-            is_auth = (
-                ans.autorizaciones.autorizacion[0]['estado'] == 'AUTORIZADO')
-        status = SRINotaStatus.CREATED_SENT_VALIDATED if is_auth else SRINotaStatus.VALIDATED_FAILED
+        status_text = extract_auth_status(ans)
+        if status_text == 'AUTORIZADO':
+            status = SRINotaStatus.CREATED_SENT_VALIDATED
+        elif status_text == 'EN PROCESO':
+            status = SRINotaStatus.CREATED_SENT
+        else:
+            status = SRINotaStatus.VALIDATED_FAILED
         return status, text
 
 
@@ -222,7 +234,7 @@ def get_or_generate_xml_paths(
     return sri_nota.xml_inv_location, sri_nota.xml_inv_signed_location
 
 
-def sri_nota_from_nota(inv: Invoice, ws):
+def sri_nota_from_nota(inv: Invoice, ws: WsEnvironment):
     sri_nota = SRINota()
     sri_nota.uid = inv.meta.uid
     sri_nota.almacen_id = inv.meta.almacen_id
@@ -241,7 +253,8 @@ def sri_nota_from_nota(inv: Invoice, ws):
     sri_nota.xml_inv_location = ''
     sri_nota.xml_inv_signed_location = ''
     sri_nota.all_comm_path = ''
-    sri_nota.access_code = compute_access_code(inv, ws)
+    if ws is not None:
+        sri_nota.access_code = compute_access_code(inv, ws)
     return sri_nota
 
 
@@ -263,3 +276,140 @@ def sri_nota_to_extra(
         'status': REMAP_SRI_STATUS.get(sri_nota.status or '', 'NO ENVIADO')
     }
     return extra
+
+
+def send_remote(nota, create, is_prod):
+    content = {
+        'action': 'create' if create else 'delete',
+        'inv': nota,
+        'uid': nota.meta.uid,
+        'is_prod': is_prod
+    }
+    msg_bytes = json_dumps(content).encode('utf-8')
+    encrypted = aes_encrypt(msg_bytes)
+
+    resp = requests.post(constants.REMOTE_ADDR, data=encrypted)
+    return resp.status_code == 200, resp.text
+
+
+def send_sri_nota(sri_nota, ws, file_manager, jinja_env, dbapi):
+    if sri_nota.almacen_id not in (1, 3):
+        return False
+
+    relpath, signed_path = get_or_generate_xml_paths(
+        sri_nota, file_manager, jinja_env, dbapi, ws)
+
+    if sri_nota.status == SRINotaStatus.CREATED:
+        fullpath = file_manager.make_fullpath(signed_path)
+        with open(fullpath, 'rb') as f:
+            xml_content = f.read()
+        try:
+            ans = ws.validate(xml_content)
+        except Exception as e:
+            message = str(e)
+            result = CommResult(
+                status='failed',
+                request_type='ENVIAR',
+                request_sent=xml_content.decode('utf-8'),
+                response=message,
+                environment=ws.name == 'PRODUCCION',
+                timestamp=datetime.datetime.now(),
+            )
+            sri_nota.append_comm_result(result, file_manager, dbapi)
+            dbapi.update(sri_nota, {
+                'status': SRINotaStatus.VALIDATED_FAILED
+            })
+            return False
+
+        result = CommResult(
+            status='success',
+            request_type='ENVIAR',
+            request_sent=xml_content.decode('utf-8'),
+            response=str(ans),
+            environment=ws.name == 'PRODUCCION',
+            timestamp=datetime.datetime.now(),
+        )
+        sri_nota.append_comm_result(result, file_manager, dbapi)
+        dbapi.update(sri_nota, {
+            'status': SRINotaStatus.CREATED_SENT
+        })
+        return True
+
+
+def auth_sri_nota(sri_nota, ws, dbapi, file_manager):
+    try:
+        status, text = ws.authorize(sri_nota.access_code)
+    except Exception as e:
+        message = str(e)
+        result = CommResult(
+            status='failed',
+            request_type='AUTORIZAR',
+            request_sent=sri_nota.access_code,
+            response=message,
+            environment=ws.name == 'PRODUCCION',
+            timestamp=datetime.datetime.now(),
+        )
+        sri_nota.append_comm_result(result, file_manager, dbapi)
+        dbapi.update(sri_nota, {
+            'status': SRINotaStatus.VALIDATED_FAILED
+        })
+        return False
+
+    result = CommResult(
+        status=status,
+        request_type='AUTORIZAR',
+        request_sent=sri_nota.access_code,
+        response=text,
+        environment=ws.name == 'PRODUCCION',
+        timestamp=datetime.datetime.now(),
+    )
+    sri_nota.append_comm_result(result, file_manager, dbapi)
+    dbapi.update(sri_nota, {
+        'status': status,
+    })
+    return True
+
+
+def send_sri_by_date_range(start, end, dbapi, file_manager, alm_id_to_ws, jinja_env):
+    sri_notas = dbapi.search(
+            SRINota, **{'timestamp_received-lte': end,
+                        'timestamp_received-gte': start,
+                        'almacen_id-ne': 2,
+                        'status': SRINotaStatus.CREATED})
+    for sri_nota in sri_notas:
+        ws = alm_id_to_ws(sri_nota.almacen_id)
+        if not ws:
+            continue
+        print('send', sri_nota.uid)
+        try:
+            send_sri_nota(
+                sri_nota,
+                ws=ws,
+                dbapi=dbapi,
+                file_manager=file_manager,
+                jinja_env=jinja_env)
+        except HenryException as h:
+            print(h)
+            import traceback
+            traceback.print_exc()
+            print('failed')
+        else:
+            print('done send', sri_nota.uid)
+
+    time.sleep(1)
+    sri_notas = dbapi.search(
+            SRINota, **{'timestamp_received-lte': end,
+                        'timestamp_received-gte': start,
+                        'almacen_id-ne': 2,
+                        'status': SRINotaStatus.CREATED_SENT})
+    for sri_nota in sri_notas:
+        ws = alm_id_to_ws(sri_nota.almacen_id)
+        if not ws:
+            continue
+        print('auth', sri_nota.uid)
+        auth_sri_nota(sri_nota,
+            ws=ws,
+            dbapi=dbapi,
+            file_manager=file_manager)
+        print('done auth', sri_nota.uid)
+

@@ -39,6 +39,7 @@ rest/*
 *.pyc
 henry-api/*
 henry/constants.py
+henry/cloud_inv_const.py
 *.p12
 *.pem
 node_modules/*

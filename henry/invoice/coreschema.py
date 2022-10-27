@@ -89,3 +89,4 @@ class NSRINota(Base):
 
     # path to a json file with communications with remote
     all_comm_path = Column(String(200))
+    is_prod = Column(Integer)  # 1 is prod 0 is test

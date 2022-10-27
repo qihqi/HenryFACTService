@@ -21,7 +21,7 @@ from henry.users.dao import User, Client
 
 from .coreschema import NNota
 from .dao import Invoice, NotaExtra, SRINota, SRINotaStatus, CommResult
-from .util import compute_access_code
+from .util import compute_access_code, send_remote
 from .util import get_or_generate_xml_paths, sri_nota_to_extra, sri_nota_from_nota
 
 
@@ -147,7 +147,7 @@ def make_nota_api(
         elif alm_id == 3:
             return corp_ws
         else:
-            raise HenryException('Almacen id invalid')
+            return None
 
     @api.post('{}/nota'.format(url_prefix))
     @dbcontext
@@ -200,17 +200,38 @@ def make_nota_api(
             nota_extra.last_change_time = datetime.datetime.now()
             dbapi.create(nota_extra)
 
-        access_code = ''
-        if inv.meta.almacen_id in (1, 3):
-            sri_nota = dbapi.getone(
-                SRINota,
-                almacen_ruc=inv.meta.almacen_ruc,
-                orig_codigo=inv.meta.codigo)
-            if sri_nota is None:
-                ws = alm_id_to_ws(inv.meta.almacen_id)
-                sri_nota = sri_nota_from_nota(inv, ws)
-                dbapi.create(sri_nota)
-            access_code = sri_nota.access_code
+        sri_nota = dbapi.getone(
+            SRINota,
+            almacen_ruc=inv.meta.almacen_ruc,
+            orig_codigo=inv.meta.codigo)
+        ws = alm_id_to_ws(inv.meta.almacen_id)
+        if sri_nota is None:
+            sri_nota = sri_nota_from_nota(inv, ws)
+            dbapi.create(sri_nota)
+        access_code = sri_nota.access_code
+
+        if ws is None:
+            is_prod = False
+        else:
+            is_prod = ws.name == 'PRODUCCION'
+        try:
+            status, text = send_remote(inv, create=True, is_prod=is_prod)
+        except Exception as e:
+            status = False
+            text = str(e)
+
+        if sri_nota:
+            new_status = SRINotaStatus.CREATED_SENT if status else SRINotaStatus.CREATED
+            dbapi.update(sri_nota, {'status': new_status})
+            result = CommResult(
+                status=new_status,
+                request_type='ENVIAR',
+                request_sent='',
+                response=text,
+                environment=is_prod,
+                timestamp=datetime.datetime.now(),
+            )
+            sri_nota.append_comm_result(result, file_manager, dbapi)
 
         return {'status': inv.meta.status, 'access_code': access_code}
 
@@ -263,6 +284,8 @@ def make_nota_api(
     @api.put('/api/post_sri_nota/<uid>')
     @dbcontext
     def post_sri_nota(uid):
+        return ''
+        # NO longer needed. will be done in a cron jb
         sri_nota = dbapi.get(uid, SRINota)
         if sri_nota is None or sri_nota.almacen_id not in (1, 3):
             return {'status': 'failed', 'msg': 'Nota invalida'}
