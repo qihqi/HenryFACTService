@@ -340,8 +340,8 @@ def make_invoice_wsgi(
             almacen_ruc = request.query.get('almacen_ruc')
             status = request.query.get('status', 'todos')
             query = dbapi.db_session.query(NSRINota).filter(
-                and_(NSRINota.timestamp_received >= start_date,
-                     NSRINota.timestamp_received < end_date,
+                and_(NSRINota.orig_timestamp >= start_date,
+                     NSRINota.orig_timestamp < end_date,
                      NSRINota.almacen_ruc == almacen_ruc))
             valid_status = (
                 SRINotaStatus.CREATED,
