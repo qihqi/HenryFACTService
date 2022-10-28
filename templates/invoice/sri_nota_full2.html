@@ -46,7 +46,7 @@ div.fixed {
         } else {
             url = '/sync/authorize_remote';
         }
-        var conf = false;
+        var conf = true;
         var is_prod = $('#is_prod').is(':checked');
         if (is_prod) {
             var conf = confirm("Va a mandar a produccion, esta seguro?");
@@ -65,20 +65,22 @@ div.fixed {
     }
     function gen_xml(uid) {
         var url = '/sync/api/gen_xml/' + uid;
-        esperar();
-        var conf = false;
+        var conf = true;
         var is_prod = $('#is_prod').is(':checked');
         if (is_prod) {
             var conf = confirm("Va a mandar a produccion, esta seguro?");
         }
-        $.ajax( {
-            url: url,
-            method: 'POST',
-            data: {is_prod: is_prod},
-            success: function() {
-                location.reload();
-            }
-        });
+        if (conf) {
+            esperar();
+            $.ajax( {
+                url: url,
+                method: 'POST',
+                data: {is_prod: is_prod},
+                success: function() {
+                    location.reload();
+                }
+            });
+        }
     }
     function enviar(uid) {
         validate_or_authorize(uid, true);

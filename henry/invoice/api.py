@@ -159,7 +159,7 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     def gen_xml(uid):
         uid = int(uid)
         sri_nota = dbapi.get(uid, SRINota)
-        is_prod = bool(request.forms.get('is_prod', 0))
+        is_prod = bool(request.forms.get('is_prod', 'false') == 'true')
         if is_prod:
             ws = WS_PROD
         else:
@@ -194,7 +194,7 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     def validate_nota():
         uid = request.forms.get('uid')
         sri_nota = dbapi.get(uid, SRINota)
-        is_prod = int(request.forms.get('is_prod', 0))
+        is_prod = bool(request.forms.get('is_prod', 'false') == 'true')
         if is_prod:
             ws = WS_PROD
         else:
@@ -227,7 +227,7 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     @dbcontext
     def autorize_remote():
         uid = request.forms.get('uid')
-        is_prod = bool(request.forms.get('is_prod', 0))
+        is_prod = bool(request.forms.get('is_prod', 'false') == 'true')
         sri_nota = dbapi.get(uid, SRINota)
         if is_prod:
             ws = WS_PROD
