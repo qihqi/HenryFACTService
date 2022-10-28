@@ -14,7 +14,7 @@ class FileService(object):
         if not filename.startswith('/'):
             dirname = os.path.join(self.root, dirname)
         if not os.path.exists(dirname):
-            os.makedirs(dirname)
+            os.makedirs(dirname, 0o777)
         fullpath = os.path.join(dirname, name)
         return fullpath
 
