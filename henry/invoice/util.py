@@ -212,7 +212,9 @@ def generate_xml_paths(sri_nota: SRINota,
     p12key = keyinfo['key']
     print(p12filename, p12key)
 
-    xml_inv_signed_location = '{}-signed.xml'.format(sri_nota.access_code)
+    xml_inv_signed_location = '{}/{}-signed.xml'.format(
+            sri_nota.orig_timestamp.date().isoformat(),
+            sri_nota.access_code)
     signed_xml = xades.sign_xml(xml_text, p12filename, p12key).decode('utf-8')
     file_manager.put_file(xml_inv_signed_location, signed_xml)
 
@@ -382,17 +384,20 @@ def send_sri_by_date_range(start, end, dbapi, file_manager, is_prod_to_ws, jinja
             continue
         print('send', sri_nota.uid, 'is_prod=', sri_nota.is_prod)
         try:
-            send_sri_nota(
+            ret =  send_sri_nota(
                 sri_nota,
                 ws=ws,
                 dbapi=dbapi,
                 file_manager=file_manager,
                 jinja_env=jinja_env)
-        except HenryException as h:
+            print('ret val is', ret)
+            dbapi.sm.session.commit()
+        except Exception as h:
             print(h)
             import traceback
             traceback.print_exc()
             print('failed')
+            dbapi.sm.session.rollback()
         else:
             print('done send', sri_nota.uid)
 
@@ -407,9 +412,18 @@ def send_sri_by_date_range(start, end, dbapi, file_manager, is_prod_to_ws, jinja
         if not ws:
             continue
         print('auth', sri_nota.uid, 'is_prod=', sri_nota.is_prod)
-        auth_sri_nota(sri_nota,
-            ws=ws,
-            dbapi=dbapi,
-            file_manager=file_manager)
-        print('done auth', sri_nota.uid)
+        try:
+            auth_sri_nota(sri_nota,
+                ws=ws,
+                dbapi=dbapi,
+                file_manager=file_manager)
+            dbapi.sm.session.commit()
+        except Exception as h:
+            print(h)
+            import traceback
+            traceback.print_exc()
+            print('failed')
+            dbapi.sm.session.rollback()
+        else:
+            print('done auth', sri_nota.uid)
 

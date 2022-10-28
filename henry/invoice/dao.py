@@ -216,7 +216,9 @@ class SRINota(SerializableDB[NSRINota]):
             dbapi: DBApiGeneric):
         if not self.all_comm_path:
             assert self.access_code, 'Access code is None'
-            self.all_comm_path = self.access_code + 'resp'
+            self.all_comm_path = '{}/sri_comms_{}.resp'.format(
+                    self.orig_timestamp.date().isoformat(),
+                    self.uid)
             dbapi.update(self, {
                 'all_comm_path': self.all_comm_path,
             })

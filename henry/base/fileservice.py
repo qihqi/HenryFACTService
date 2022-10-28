@@ -15,6 +15,7 @@ class FileService(object):
             dirname = os.path.join(self.root, dirname)
         if not os.path.exists(dirname):
             os.makedirs(dirname, 0o777)
+            os.chmod(dirname, 0o777)
         fullpath = os.path.join(dirname, name)
         return fullpath
 
@@ -29,7 +30,11 @@ class FileService(object):
         with open(fullpath, 'w') as f:
             f.write(content)
             f.flush()
-            return fullpath
+        try:
+            os.chmod(fullpath, 0o777)
+        except PermissionError:
+            pass
+        return fullpath
 
     def get_file(self, filename: str) -> Optional[str]:
         fullpath = self.make_fullpath(filename)
