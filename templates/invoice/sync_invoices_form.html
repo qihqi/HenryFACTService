@@ -15,6 +15,7 @@
 
 <table>
     <tr>
+        <th>fecha</th>
         <th>codigo</th>
         <th> Comprador </th>
         <th> IVA </th>
@@ -24,7 +25,8 @@
     </tr>
     {% for row in rows %}
     <tr>
-        <td>{{ row.orig_codigo }}</td>
+        <td>{{ row.orig_timestamp.date().isoformat()}}</td>
+        <td><b>{{ row.orig_codigo }}</b></td>
         <td>{{ row.buyer_name }}</td>
         <td>{{ row.tax }}</td>
         <td>{{ row.total }}</td>
