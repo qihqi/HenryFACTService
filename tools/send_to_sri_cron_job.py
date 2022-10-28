@@ -11,14 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from henry.base.session_manager import SessionManager, DBContext
 
-def alm_id_to_ws(alm_id):
-    if alm_id == 1:
-        is_prod = constants.QUINAL_WS_PROD
-    elif alm_id == 3:
-        is_prod = constants.CORP_WS_PROD
-    else:
-        return None
-
+def is_prod_to_ws(is_prod):
     if is_prod:
         return WS_PROD
     else:
@@ -36,7 +29,7 @@ def main():
     with dbapi.sm:
         send_sri_by_date_range(
             start, end,
-            alm_id_to_ws=alm_id_to_ws,
+            is_prod_to_ws=is_prod_to_ws,
             dbapi=dbapi,
             jinja_env=jinja_env,
             file_manager=file_manager)

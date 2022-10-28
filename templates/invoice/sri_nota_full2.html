@@ -46,23 +46,35 @@ div.fixed {
         } else {
             url = '/sync/authorize_remote';
         }
-        esperar();
-        $.ajax( {
-            url: url,
-            method: 'POST',
-            data: {uid: uid},
-            success: function() {
-                location.reload();
-            }
-        });
+        var conf = false;
+        var is_prod = $('#is_prod').is(':checked');
+        if (is_prod) {
+            var conf = confirm("Va a mandar a produccion, esta seguro?");
+        }
+        if (conf) {
+            esperar();
+            $.ajax( {
+                url: url,
+                method: 'POST',
+                data: {uid: uid, is_prod: is_prod},
+                success: function() {
+                    location.reload();
+                }
+            });
+        }
     }
     function gen_xml(uid) {
         var url = '/sync/api/gen_xml/' + uid;
         esperar();
+        var conf = false;
+        var is_prod = $('#is_prod').is(':checked');
+        if (is_prod) {
+            var conf = confirm("Va a mandar a produccion, esta seguro?");
+        }
         $.ajax( {
             url: url,
             method: 'POST',
-            data: {uid: uid},
+            data: {is_prod: is_prod},
             success: function() {
                 location.reload();
             }
@@ -87,6 +99,7 @@ div.fixed {
     }
 </script>
 
+<p>Is Prod <input type="checkbox" name="is_prod" id="is_prod" /> </p>
 <button class="actbutton" onclick="gen_xml({{nota.uid}});">Generar XML</button>
 <button class="actbutton" onclick="enviar({{nota.uid}});">Enviar a SRI</button>
 <button class="actbutton" onclick="autorizar({{nota.uid}});">Autorizar </button>

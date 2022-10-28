@@ -19,6 +19,7 @@ from henry.invoice.dao import SRINota, SRINotaStatus, CommResult
 from henry.invoice.coreschema import NSRINota
 from henry.dao.document import DocumentApi
 from henry.base.common import HenryException
+from henry.coreconfig import WS_TEST, WS_PROD
 
 from .dao import Invoice
 from .util import generate_xml_paths, sri_nota_from_nota, WsEnvironment
@@ -158,7 +159,11 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     def gen_xml(uid):
         uid = int(uid)
         sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        is_prod = bool(request.forms.get('is_prod', 0))
+        if is_prod:
+            ws = WS_PROD
+        else:
+            ws = WS_TEST
         relpath, signed_path = generate_xml_paths(
             sri_nota, file_manager, jinja_env, dbapi, ws)
 
@@ -169,13 +174,12 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     def mark_remote_nota_as_valid(uid):
         uid = int(uid)
         sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
         result = CommResult(
             status='success',
             request_type='AUTORIZAR',
             request_sent='',
             response='Marcado manualmente como autorizado',
-            environment=ws.name == 'PRODUCCION',
+            environment=True,
             timestamp=datetime.datetime.now(),
         )
         sri_nota.append_comm_result(result, file_manager, dbapi)
@@ -190,13 +194,16 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     def validate_nota():
         uid = request.forms.get('uid')
         sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        is_prod = int(request.forms.get('is_prod', 0))
+        if is_prod:
+            ws = WS_PROD
+        else:
+            ws = WS_TEST
         xml, xml_signed = get_or_generate_xml_paths(
             sri_nota, file_manager, jinja_env, dbapi, ws)
         fullpath = file_manager.make_fullpath(xml_signed)
         with open(fullpath, 'rb') as f:
             xml_content = f.read()
-        ws = alm_id_to_ws(sri_nota.almacen_id)
         try:
             ans = ws.validate(xml_content)
         except ConnectionError:
@@ -220,8 +227,13 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
     @dbcontext
     def autorize_remote():
         uid = request.forms.get('uid')
+        is_prod = bool(request.forms.get('is_prod', 0))
         sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        if is_prod:
+            ws = WS_PROD
+        else:
+            ws = WS_TEST
+
         status, text = ws.authorize(sri_nota.access_code)
 
         result = CommResult(

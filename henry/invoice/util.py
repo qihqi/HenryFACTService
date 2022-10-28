@@ -371,17 +371,17 @@ def auth_sri_nota(sri_nota, ws, dbapi, file_manager):
     return True
 
 
-def send_sri_by_date_range(start, end, dbapi, file_manager, alm_id_to_ws, jinja_env):
+def send_sri_by_date_range(start, end, dbapi, file_manager, is_prod_to_ws, jinja_env):
     sri_notas = dbapi.search(
             SRINota, **{'timestamp_received-lte': end,
                         'timestamp_received-gte': start,
                         'almacen_id-ne': 2,
                         'status': SRINotaStatus.CREATED})
     for sri_nota in sri_notas:
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        ws = is_prod_to_ws(sri_nota.is_prod)
         if not ws:
             continue
-        print('send', sri_nota.uid)
+        print('send', sri_nota.uid, 'is_prod=', sri_nota.is_prod)
         try:
             send_sri_nota(
                 sri_nota,
@@ -404,10 +404,10 @@ def send_sri_by_date_range(start, end, dbapi, file_manager, alm_id_to_ws, jinja_
                         'almacen_id-ne': 2,
                         'status': SRINotaStatus.CREATED_SENT})
     for sri_nota in sri_notas:
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        ws = is_prod_to_ws(sri_nota.is_prod)
         if not ws:
             continue
-        print('auth', sri_nota.uid)
+        print('auth', sri_nota.uid, 'is_prod=', sri_nota.is_prod)
         auth_sri_nota(sri_nota,
             ws=ws,
             dbapi=dbapi,
