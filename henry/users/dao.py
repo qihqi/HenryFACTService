@@ -30,6 +30,7 @@ class Client(SerializableDB[NCliente]):
     telefono: Optional[str] = None
     tipo: Optional[str] = None
     cliente_desde: Optional[datetime.date] = None
+    email: Optional[str] = None
 
     @property
     def fullname(self) -> str:

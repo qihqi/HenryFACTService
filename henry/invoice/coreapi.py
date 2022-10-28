@@ -165,6 +165,9 @@ def make_nota_api(
         fix_inv_by_options(dbapi, inv, options)
         # always use server's time.
         inv.meta.timestamp = datetime.datetime.now()
+        client = dbapi.get(inv.meta.client.codigo, Client)
+        if client:
+            inv.meta.client = client  # recover some info
         # at this point, inv should no longer change
 
         if options.crear_cliente:  # create client if not exist

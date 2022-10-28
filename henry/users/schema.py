@@ -24,3 +24,4 @@ class NCliente(Base):
     telefono = Column(String(50), nullable=True)
     tipo = Column(String(1))
     cliente_desde = Column(Date)
+    email = Column(String(100), nullable=True)
