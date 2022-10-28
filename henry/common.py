@@ -111,5 +111,5 @@ def strip_accents(s: str) -> str:
     if not s:
         return ''
     res = ''.join(c for c in unicodedata.normalize('NFD', s)
-                  if unicodedata.category(c) != 'Mn')
+                  if unicodedata.category(c) not in ('Mn', 'Cc'))
     return res

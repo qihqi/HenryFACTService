@@ -248,7 +248,7 @@ def sri_nota_from_nota(inv: Invoice, ws: WsEnvironment):
     sri_nota.discount = Decimal(inv.meta.discount) / 100
     if inv.meta.client:
         sri_nota.buyer_ruc = inv.meta.client.codigo
-        sri_nota.buyer_name = inv.meta.client.fullname
+        sri_nota.buyer_name = strip_accents(inv.meta.client.fullname)
     sri_nota.json_inv_location = inv.filepath_format
     sri_nota.xml_inv_location = ''
     sri_nota.xml_inv_signed_location = ''
