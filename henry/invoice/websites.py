@@ -34,7 +34,8 @@ from .util import (
     generate_xml_paths,
     sri_nota_to_extra,
     sri_nota_from_nota,
-    REMAP_SRI_STATUS
+    REMAP_SRI_STATUS,
+    send_remote,
 )
 
 __author__ = 'han'
@@ -288,57 +289,34 @@ def make_invoice_wsgi(
             start_id, end_id)
         return content
 
-    @w.post('/app/validate_remote')
+    @w.post('/app/resend_nota')
     @dbcontext
-    def validate_nota():
+    def resend():
         uid = request.forms.get('uid')
         sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
-        xml, xml_signed = get_or_generate_xml_paths(
-            sri_nota, file_manager, jinja_env, dbapi, ws)
-        fullpath = file_manager.make_fullpath(xml_signed)
-        with open(fullpath, 'rb') as f:
-            xml_content = f.read()
-        ws = alm_id_to_ws(sri_nota.almacen_id)
+        inv = invapi.get_doc(uid)
+        ws = alm_id_to_ws(inv.meta.almacen_id)
+        if ws is None:
+            is_prod = False
+        else:
+            is_prod = ws.name == 'PRODUCCION'
         try:
-            ans = ws.validate(xml_content)
-        except ConnectionError:
-            return {'status': 'failed', 'msg': 'SRI no tiene servicio'}
+            status, text = send_remote(inv, create=True, is_prod=is_prod)
+        except Exception as e:
+            status = False
+            text = str(e)
 
+        new_status = SRINotaStatus.CREATED_SENT if status else SRINotaStatus.CREATED
+        dbapi.update(sri_nota, {'status': new_status})
         result = CommResult(
-            status='success',
+            status=new_status,
             request_type='ENVIAR',
-            request_sent=xml_content.decode('utf-8'),
-            response=str(ans),
-            environment=ws.name == 'PRODUCCION',
-            timestamp=datetime.datetime.now(),
-        )
-        sri_nota.append_comm_result(result, file_manager, dbapi)
-        dbapi.update(sri_nota, {
-            'status': SRINotaStatus.CREATED_SENT
-        })
-        return {'status': 'success'}
-
-    @w.post('/app/authorize_remote')
-    @dbcontext
-    def autorize_remote():
-        uid = request.forms.get('uid')
-        sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
-        status, text = ws.authorize(sri_nota.access_code)
-
-        result = CommResult(
-            status=status,
-            request_type='AUTORIZAR',
-            request_sent=sri_nota.access_code,
+            request_sent='',
             response=text,
-            environment=ws.name == 'PRODUCCION',
+            environment=is_prod,
             timestamp=datetime.datetime.now(),
         )
         sri_nota.append_comm_result(result, file_manager, dbapi)
-        dbapi.update(sri_nota, {
-            'status': status,
-        })
         return {'status': 'success'}
 
     @w.get('/app/view_nota')
@@ -449,84 +427,6 @@ def make_invoice_wsgi(
 
         return {'status': 'success'}
 
-    # this function need to be idenpotent
-    @w.put('/app/api/post_sri_nota/<uid>')
-    @dbcontext
-    def post_sri_nota(uid):
-        sri_nota = dbapi.get(uid, SRINota)
-        ws = alm_id_to_ws(sri_nota.almacen_id)
-        relpath, signed_path = get_or_generate_xml_paths(
-            sri_nota, file_manager, jinja_env, dbapi, ws)
-
-        if sri_nota.status == SRINotaStatus.CREATED:
-            fullpath = file_manager.make_fullpath(signed_path)
-            with open(fullpath, 'rb') as f:
-                xml_content = f.read()
-            ws = alm_id_to_ws(sri_nota.almacen_id)
-            try:
-                ans = ws.validate(xml_content)
-            except Exception as e:
-                message = str(e)
-                result = CommResult(
-                    status='failed',
-                    request_type='ENVIAR',
-                    request_sent=xml_content.decode('utf-8'),
-                    response=message,
-                    environment=ws.name == 'PRODUCCION',
-                    timestamp=datetime.datetime.now(),
-                )
-                sri_nota.append_comm_result(result, file_manager, dbapi)
-                dbapi.update(sri_nota, {
-                    'status': SRINotaStatus.VALIDATED_FAILED
-                })
-                return {'status': 'failed', 'msg': 'SRI no tiene servicio'}
-
-            result = CommResult(
-                status='success',
-                request_type='ENVIAR',
-                request_sent=xml_content.decode('utf-8'),
-                response=str(ans),
-                environment=ws.name == 'PRODUCCION',
-                timestamp=datetime.datetime.now(),
-            )
-            sri_nota.append_comm_result(result, file_manager, dbapi)
-            dbapi.update(sri_nota, {
-                'status': SRINotaStatus.CREATED_SENT
-            })
-            time.sleep(0.5)
-            try:
-                status, text = ws.authorize(sri_nota.access_code)
-            except Exception as e:
-                message = str(e)
-                result = CommResult(
-                    status='failed',
-                    request_type='AUTORIZAR',
-                    request_sent=xml_content.decode('utf-8'),
-                    response=message,
-                    environment=ws.name == 'PRODUCCION',
-                    timestamp=datetime.datetime.now(),
-                )
-                sri_nota.append_comm_result(result, file_manager, dbapi)
-                dbapi.update(sri_nota, {
-                    'status': SRINotaStatus.VALIDATED_FAILED
-                })
-                return {'status': 'failed', 'msg': 'SRI no tiene servicio'}
-
-            result = CommResult(
-                status=status,
-                request_type='AUTORIZAR',
-                request_sent=sri_nota.access_code,
-                response=text,
-                environment=ws.name == 'PRODUCCION',
-                timestamp=datetime.datetime.now(),
-            )
-            sri_nota.append_comm_result(result, file_manager, dbapi)
-            dbapi.update(sri_nota, {
-                'status': status,
-            })
-
-        return {'status': 'success', 'access_code': sri_nota.access_code}
-
     @w.get('/app/remote_nota_xml/<uid>')
     @dbcontext
     def download_xml_redirect(uid):
@@ -534,10 +434,5 @@ def make_invoice_wsgi(
         fullpath = file_manager.make_fullpath(sri_nota.xml_inv_location)
         dirname, fname = os.path.split(fullpath)
         return static_file(fname, root=dirname, download=fname)
-
-    @w.post('/app/remote_nota_send_all')
-    def send_all_nota():
-       #send_sri_by_date_range(start, end, dbapi, file_manager, alm_id_to_ws, jinja_env):
-       pass
 
     return w

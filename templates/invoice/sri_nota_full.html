@@ -37,13 +37,8 @@ div.fixed {
         $('#esp_area').hide();
         $('.actbutton').prop('disabled', false);
     }
-    function validate_or_authorize(uid, validate) {
-        var url = '';
-        if (validate) {
-            url = '/app/validate_remote';
-        } else {
-            url = '/app/authorize_remote';
-        }
+    function resend(uid, validate) {
+        var url = '/app/resend_nota';
         esperar();
         $.ajax( {
             url: url,
@@ -66,30 +61,11 @@ div.fixed {
             }
         });
     }
-    function enviar(uid) {
-        validate_or_authorize(uid, true);
-    }
-    function autorizar(uid) {
-        validate_or_authorize(uid, false);
-    }
-    function marcar(uid) {
-        var url = '/app/api/mark_remote_nota_as_valid/' + uid;
-        esperar();
-        $.ajax( {
-            url: url,
-            method: 'PUT',
-            success: function() {
-                location.reload();
-            }
-        });
-    }
 </script>
 
 <button class="actbutton" onclick="gen_xml({{nota.uid}});">Generar XML</button>
-<button class="actbutton" onclick="enviar({{nota.uid}});">Enviar a SRI</button>
-<button class="actbutton" onclick="autorizar({{nota.uid}});">Autorizar </button>
+<button class="actbutton" onclick="resend({{nota.uid}});">Enviar a Remoto</button>
 
-<button class="actbutton" onclick="marcar({{nota.uid}});">Marcar como autorizado</button>
 <div id="esp_area" class="fixed" style="display:none;">
     <h2 style="margin: auto; text-align: center;">Espere por favor ... </h2>
 </div>
