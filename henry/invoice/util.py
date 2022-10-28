@@ -128,9 +128,7 @@ def inv_to_sri_dict(inv: Invoice, sri_nota: SRINota,
     tipo_ident = guess_id_type(inv.meta.client.codigo)
     # 99 para consumidor final
     ts = inv.meta.timestamp
-    access = sri_nota.access_code
-    if access is None:
-        access = compute_access_code(inv, ws)
+    access = compute_access_code(inv, ws)
     if tipo_ident == IdType.CONS_FINAL:
         comprador = 'CONSUMIDOR FINAL'
         id_compra = '9999999999999'
@@ -195,6 +193,7 @@ def generate_xml_paths(sri_nota: SRINota,
         raise HenryException(
             'Inv corresponding a {} not found'.format(sri_nota.uid))
 
+    sri_nota.access_code = compute_access_code(inv, ws)
     xml_dict = inv_to_sri_dict(inv, sri_nota, dbapi, ws)
     if xml_dict is None:
         return None, None

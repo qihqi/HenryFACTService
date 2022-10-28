@@ -107,15 +107,15 @@ def make_nota_all(prefix: str, dbapi: DBApiGeneric,
                 return {'created': False, 'msg': 'ya exist'}
             inv.meta.uid = None
             invapi.save(inv)
-            store = dbapi.get(inv.meta.almacen_id, Store)
-            ws = object()
-            name = 'PRODUCCION' if is_prod else 'PRUEBA'
-            code = 2 if is_prod else 1
-            ws = WsEnvironment(name, str(code), '', '')
-            sri_nota = sri_nota_from_nota(inv, ws)
-            sri_nota.is_prod = is_prod
-            dbapi.create(sri_nota)
-            return {'status': 'created'}
+            if inv.meta.almacen_id in (1, 3):
+                store = dbapi.get(inv.meta.almacen_id, Store)
+                name = 'PRODUCCION' if is_prod else 'PRUEBA'
+                code = 2 if is_prod else 1
+                ws = WsEnvironment(name, str(code), '', '')
+                sri_nota = sri_nota_from_nota(inv, ws)
+                sri_nota.is_prod = is_prod
+                dbapi.create(sri_nota)
+                return {'status': 'created'}
         if action == 'delete':
             inv = invapi.get_doc(uid)
             invapi.delete(inv)
