@@ -16,7 +16,7 @@
         <fechaEmision>{{ fecha }}</fechaEmision> <!-- dd/mm/aaaa -->
         <!-- ruc = 04 , cedula = 05, final = 07--> 
         <tipoIdentificacionComprador>{{ tipo_identificacion_comprador }}</tipoIdentificacionComprador> <!-- numero cedula -->
-        <razonSocialComprador>{{ strip_accents(razon_social_comprador) }}</razonSocialComprador>
+        <razonSocialComprador>{{ strip_accents(razon_social_comprador) | e}}</razonSocialComprador>
         <identificacionComprador>{{ id_comprador }}</identificacionComprador>
         <totalSinImpuestos>{{ subtotal }}</totalSinImpuestos>
         <totalDescuento>{{ descuento }}</totalDescuento>
@@ -41,7 +41,7 @@
         {% for d in detalles %}
         <detalle>
             <codigoPrincipal>{{d.id}}</codigoPrincipal>
-            <descripcion> {{ strip_accents(d.nombre) }}</descripcion>
+            <descripcion> {{ strip_accents(d.nombre) | e}}</descripcion>
             <cantidad>{{ d.cantidad }}</cantidad>
             <precioUnitario>{{  "%.2f" |format( d.precio) }}</precioUnitario>
             <descuento>
