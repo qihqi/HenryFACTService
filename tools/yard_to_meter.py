@@ -2,6 +2,7 @@
 """
 from henry.coreconfig import sessionmanager, transactionapi
 from henry.base.dbapi import DBApiGeneric
+from henry.base.serialization import json_dumps
 from henry.product.dao import ProdItemGroup, ProdItem, PriceList, InventoryMovement, InvMovementType
 from henry.product.schema import NItemGroup, NItem, NPriceList
 
@@ -9,6 +10,7 @@ from typing import Dict, Optional, List
 from collections import defaultdict
 from dataclasses import dataclass, field
 import datetime
+from decimal import Decimal
 
 dbapi = DBApiGeneric(sessionmanager)
 current_time = datetime.datetime.now()
@@ -25,10 +27,11 @@ def get_all_with_yard_unit(dbapi):
 @dataclass
 class Update:
     igid: int = 0
+    prod_id: str = ''
     price: List[NPriceList] = field(default_factory=list)
     cantidad: Optional[defaultdict] = None
 
-METER_IN_YARD = 0.9144
+METER_IN_YARD = Decimal('0.9144')
 
 APPLY_CHANGES = False
 
@@ -46,20 +49,20 @@ def update_price(update):
                              'precio2': int(p.precio2 / METER_IN_YARD),
                              'unidad': 'METRO',
                           })
-    for k, v in update.cantidad.items():
-        for bodega_id, cant in v:
-            inv = InventoryMovement(
-                from_inv_id=-1,
-                to_inv_id=bodega_id,
-                quantity = cant * METER_IN_YARD,
-                prod_id = update.prod_id,
-                itemgroup_id = update.igid,
-                type=InvMovementType.INITIAL,
-                reference_id = 'yarda_a_metro',
-            )
-            print(json_dumps(inv))
-            if APPLY_CHANGES:
-                transactionapi.save(inv)
+    for bodega_id, cant in update.cantidad.items():
+        inv = InventoryMovement(
+            from_inv_id=-1,
+            to_inv_id=bodega_id,
+            quantity = cant * METER_IN_YARD,
+            prod_id = update.prod_id,
+            itemgroup_id = update.igid,
+            type=InvMovementType.INITIAL,
+            reference_id = 'yarda_a_metro',
+            timestamp = current_time,
+        )
+        print(json_dumps(inv))
+        if APPLY_CHANGES:
+            transactionapi.save(inv)
 
 
 def main():
@@ -67,6 +70,7 @@ def main():
     with sessionmanager:
         for item, price in get_all_with_yard_unit(dbapi):
             update = updates[item.itemgroupid]
+            update.prod_id = price.prod_id
             update.igid = item.itemgroupid
             update.price.append(price)
 
