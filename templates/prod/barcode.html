@@ -13,7 +13,7 @@
         {% for j in range(column) %}
         <td style="text-align:center;">
             <p>{{prodname}}
-                <br/>${{value_from_cents(price)}}(con IVA de 12%)</p>
+            <br/>${{value_from_cents(price)}}(con IVA de {{iva}}%)</p>
             <img src="{{url}}"/>
         </td>
         {% endfor %}

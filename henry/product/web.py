@@ -273,6 +273,10 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
         prod_id = request.query.get('prod_id')
         almacen_id = request.query.get('almacen_id')
         quantity = int(request.query.get('quantity', 1))
+        iva = request.query.get('iva')
+
+        if iva is None:
+            redirect('/app/barcode_form?msg=ponga+un+valor+de+iva')
 
         prod = dbapi.getone(PriceList, prod_id=prod_id, almacen_id=almacen_id)
 
@@ -293,7 +297,7 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
 
         column = 5
         row = 9
-        price = int(prod.precio1 * quantity * Decimal('1.12') + Decimal('0.5'))
+        price = int(prod.precio1 * quantity * (Decimal(iva) / 100 + 1) + Decimal('0.5'))
 
         temp = jinja_env.get_template('prod/barcode.html')
         return temp.render(
@@ -301,7 +305,8 @@ def make_wsgi_app(dbcontext, auth_decorator, jinja_env, dbapi, imagefiles):
             row=row,
             column=column,
             prodname=prod.nombre,
-            price=price)
+            price=price,
+            iva=iva)
 
     @w.get('/app/modificar_almacenes')
     @dbcontext
