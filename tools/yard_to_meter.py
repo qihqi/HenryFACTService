@@ -33,22 +33,26 @@ class Update:
 
 METER_IN_YARD = Decimal('0.9144')
 
-APPLY_CHANGES = False
+APPLY_CHANGES = True
 
 
 def update_price(update):
     for p in update.price:
-        print('{} cambio precio de {} a {}'.format(
-            p.nombre,
-            p.precio1,
-            int(p.precio1 / METER_IN_YARD)))
+        new_p1 = int(round(p.precio1 / METER_IN_YARD))
+        new_p2 = int(round(p.precio2 / METER_IN_YARD))
+        print('{}:{} cambio precio de {} a {}'.format(
+                p.pid,
+                p.nombre,
+                p.precio1,
+                new_p1))
         if APPLY_CHANGES:
             dbapi.update(PriceList(pid=p.pid),
                          {
-                             'precio1': int(p.precio1 / METER_IN_YARD),
-                             'precio2': int(p.precio2 / METER_IN_YARD),
+                             'precio1': new_p1, 
+                             'precio2': new_p2, 
                              'unidad': 'METRO',
                           })
+            print('price applied')
     for bodega_id, cant in update.cantidad.items():
         inv = InventoryMovement(
             from_inv_id=-1,
@@ -63,6 +67,7 @@ def update_price(update):
         print(json_dumps(inv))
         if APPLY_CHANGES:
             transactionapi.save(inv)
+            print('quant applied')
 
 
 def main():
@@ -75,7 +80,10 @@ def main():
             update.price.append(price)
 
         for igid, update in updates.items():
-            cantidad=transactionapi.get_current_quantity(igid)
+            try:
+                cantidad=transactionapi.get_current_quantity(igid)
+            except:
+                print('error in fetching {}'.format(igid))
             update.cantidad = cantidad
 
         for update in updates.values():
