@@ -53,7 +53,7 @@
             <impuestos>
                 <impuesto>
                     <codigo>2</codigo> <!-- 2 = IVA -->
-                    <codigoPorcentaje>{{ 2 if tax_percent == 12 else 3 }}</codigoPorcentaje> <!-- 2 = 12%, 3 = 14% -->
+                    <codigoPorcentaje>{{ codigo_porcentaje }}</codigoPorcentaje> <!-- 2 = 12%, 3 = 14% -->
                     <tarifa>{{ tax_percent }}</tarifa>
                     <baseImponible>{{ '%.2f'|format(d.total_sin_impuesto) }}</baseImponible>
                     <valor>{{  '%.2f'|format( d.total_impuesto) }}</valor>
