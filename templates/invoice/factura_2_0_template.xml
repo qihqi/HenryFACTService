@@ -23,7 +23,7 @@
         <totalConImpuestos>
             <totalImpuesto>
                 <codigo>2</codigo>  <!-- iva = 2 -->
-                <codigoPorcentaje>{{ 2 if tax_percent == 12 else 3 }}</codigoPorcentaje> <!-- 2 = 12%, 3 = 14% -->
+                <codigoPorcentaje>{{ codigo_porcentaje }}</codigoPorcentaje> <!-- 2 = 12%, 3 = 14% -->
                 <baseImponible> {{  '%0.2f' % subtotal }}</baseImponible>
                 <valor>{{  '%0.2f' % iva }}</valor>
             </totalImpuesto>

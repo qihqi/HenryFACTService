@@ -139,6 +139,15 @@ def inv_to_sri_dict(inv: Invoice, sri_nota: SRINota,
         id_compra = inv.meta.client.codigo
     assert inv.meta.codigo is not None
     assert store is not None
+    percent_to_code {
+        0: 0,
+        12: 2,
+        14: 3,
+        15: 4,
+        5: 5,
+        13: 10,
+    }
+    codigo_porcentaje = percent_to_code.get(tax_percent, 2)
     res = {
         'ambiente': ws.code,
         'razon_social': store.nombre,
@@ -155,6 +164,7 @@ def inv_to_sri_dict(inv: Invoice, sri_nota: SRINota,
         'descuento': Decimal(inv.meta.discount or 0) / 100,
         'total': Decimal(inv.meta.total or 0) / 100,
         'tax_percent': inv.meta.tax_percent,
+        'codigo_porcentaje': codigo_porcentaje,
         'detalles': []
     }
     for item in inv.items:
