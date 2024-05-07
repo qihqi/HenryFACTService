@@ -15,6 +15,7 @@ from henry.base.serialization import json_dumps, decode_str, SerializableData
 from henry.base.session_manager import DBContext
 from henry.dao.document import Status
 from henry.base.common import HenryException
+from henry.base.fileservice import LockClass
 
 from henry.product.dao import Store, PriceList, create_items_chain
 from henry.users.dao import User, Client
@@ -172,10 +173,18 @@ def make_nota_api(
 
         if options.crear_cliente:  # create client if not exist
             client = inv.meta.client
-            if not dbapi.get(Client, client.codigo):
+            if not dbapi.get(client.codigo, Client):
                 dbapi.save(client)
 
-        inv = invapi.save(inv)
+        # Get server's codigo
+        with open('/tmp/inv_write_file', 'w') as f:
+            with LockClass(f):
+                store = dbapi.get(inv.meta.almacen_id, Store)
+                inv.meta.codigo = store.next_inv_id
+                inv = invapi.save(inv)
+                store.next_inv_id += 1
+                dbapi.save(store, {'next_inv_id', store.next_inv_id})
+                dbapi.db_session.commit()
 
         # increment the next invoice's number
         if options.incrementar_codigo:

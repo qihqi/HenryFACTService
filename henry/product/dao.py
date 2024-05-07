@@ -52,6 +52,7 @@ class Store(SerializableDB[NStore]):
     nombre: Optional[str] = None
     bodega_id: Optional[int] = None
     address: Optional[str] = None
+    next_inv_id: Optional[int] = None
 
 
 @dataclasses.dataclass

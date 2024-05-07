@@ -84,8 +84,8 @@ def make_wsgi_app(dbcontext: DBContext,
     def get_secuencia():
         users = dbapi.search(User)
         temp = jinja_env.get_template('secuencia.html')
-        store_dict = {s.almacen_id: s.nombre for s in dbapi.search(Store)}
-        store_dict[-1] = 'Ninguno'
+        store_dict = {s.almacen_id: s for s in dbapi.search(Store)}
+        store_dict[-1] = Store(nombre='Ninguno', next_inv_id=-1)
         return temp.render(users=users, stores=store_dict)
 
     @w.post('/app/secuencia')
@@ -95,8 +95,9 @@ def make_wsgi_app(dbcontext: DBContext,
     def post_secuencia():
         username = request.forms.usuario
         seq = request.forms.secuencia
-        user = User(username=username)
-        dbapi.update(user, {'last_factura': seq})
+        user = dbapi.get(username, User)
+        dbapi.update(Store(almacen_id=user.bodega_factura_id), 
+                     {'next_inv_id': seq})
         redirect('/app/secuencia')
 
     @w.get('/app/ver_cliente')

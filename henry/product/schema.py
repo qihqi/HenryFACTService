@@ -46,6 +46,7 @@ class NStore(Base):
     nombre = Column(String(20))
     bodega_id = Column(Integer)
     address = Column(String(100))
+    next_inv_id = Column(Integer)
 
 
 class NPriceListLabel(Base):
