@@ -147,6 +147,8 @@ def make_nota_api(
             return quinal_ws
         elif alm_id == 3:
             return corp_ws
+        #elif alm_id == 99:
+        #    return corp_ws
         else:
             return None
 
@@ -174,7 +176,7 @@ def make_nota_api(
         if options.crear_cliente:  # create client if not exist
             client = inv.meta.client
             if not dbapi.get(client.codigo, Client):
-                dbapi.save(client)
+                dbapi.update(client)
 
         # Get server's codigo
         with open('/tmp/inv_write_file', 'w') as f:
@@ -183,7 +185,7 @@ def make_nota_api(
                 inv.meta.codigo = store.next_inv_id
                 inv = invapi.save(inv)
                 store.next_inv_id += 1
-                dbapi.save(store, {'next_inv_id', store.next_inv_id})
+                dbapi.update(store, {'next_inv_id': store.next_inv_id})
                 dbapi.db_session.commit()
 
         # increment the next invoice's number
