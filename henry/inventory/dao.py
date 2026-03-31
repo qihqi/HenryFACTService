@@ -62,7 +62,7 @@ def transtype_to_invtype(tipo):
 
 @dataclasses.dataclass
 class TransItem(SerializableData):
-    prod: ProdItem = ProdItem()
+    prod: ProdItem = dataclasses.field(default_factory=ProdItem)
     cant: Decimal = Decimal(0)
 
     @classmethod

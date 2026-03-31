@@ -30,7 +30,7 @@ class Status(object):
 
 @dataclasses.dataclass
 class Item(SerializableData):
-    prod: PriceList = PriceList()
+    prod: PriceList = dataclasses.field(default_factory=PriceList)
     cant: Decimal = Decimal(0)
 
 
