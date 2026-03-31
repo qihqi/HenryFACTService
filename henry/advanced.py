@@ -33,9 +33,14 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
     @dbcontext
     def view_cant():
         prods = []
-        for x in dbapi.search(ProdItemGroup):
+        for i, x in enumerate(dbapi.search(ProdItemGroup)):
+            #TODO(remove)
+            if i > 100:
+                break
             prods.append((x, transactionapi.get_current_quantity(x.uid)))
-        print(prods)
+        # print(prods)
+        temp = jinja_env.get_template('view_cant.html')
+        return temp.render(prods=prods)
 
     class Prod(object):
         def __init__(self):

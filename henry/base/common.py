@@ -24,6 +24,9 @@ def parse_start_end_date(forms: Mapping[str, str],
     start_date = None
     end_date = None
     try:
+        print('=====')
+        print(start, end)
+        print('=====')
         if start:
             start_date = parse_iso(start)
         if end:

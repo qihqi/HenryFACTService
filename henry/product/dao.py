@@ -346,6 +346,8 @@ class InventoryApi(object):
         records = self.get_past_records(igid)
         start_date = datetime.date(2000, 1, 1)
         if records:
+            print('HERE')
+            print(records)
             # starting date is one day after lasttime!
             assert records[0].upto_date is not None
             start_date = records[0].upto_date + datetime.timedelta(days=1)
