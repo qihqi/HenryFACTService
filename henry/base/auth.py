@@ -3,6 +3,7 @@ from hashlib import sha1
 import bottle
 from bottle import request, response, parse_auth
 from henry.users.schema import NUsuario
+from henry.product.schema import NStore
 
 from typing import Any, Dict, Optional, Callable
 from sqlalchemy.orm.session import Session
@@ -19,11 +20,12 @@ def authenticate(password: str, userinfo: NUsuario):
     return s.hexdigest() == userinfo.password
 
 
-def create_user_dict(userinfo: NUsuario) -> Dict[str, Any]:
+def create_user_dict(session, userinfo: NUsuario) -> Dict[str, Any]:
+    store = session.query(NStore).filter_by(almacen_id=userinfo.bodega_factura_id).first()
     return {
         'username': userinfo.username,
         'status': True,
-        'last_factura': userinfo.last_factura,
+        'last_factura': store.next_inv_id,
         'bodega_factura_id': userinfo.bodega_factura_id,
     }
 
@@ -78,7 +80,7 @@ class AuthDecorator(object):
             return False
         if authenticate(passwd, userinfo):
             beaker = request.environ.get('beaker.session')
-            beaker['login_info'] = create_user_dict(userinfo)
+            beaker['login_info'] = create_user_dict(self.db.session, userinfo)
             beaker.save()
             return userinfo
         return False

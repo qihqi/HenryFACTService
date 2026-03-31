@@ -50,7 +50,7 @@ def make_client_coreapi(
             if info is None:
                 return {'status': False, 'message': 'Usuario no encontrado'}
             if authenticate(password, info):
-                data = create_user_dict(info)
+                data = create_user_dict(session, info)
                 beaker['login_info'] = data
                 beaker.save()
                 return data
