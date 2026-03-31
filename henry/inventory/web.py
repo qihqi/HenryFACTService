@@ -211,6 +211,13 @@ def make_inv_wsgi(
         temp = jinja_env.get_template('inventory/ingreso.html')
         return temp.render(ingreso=trans, revision=True)
 
+    @w.get('/app/view_revision_form')
+    @dbcontext
+    @auth_decorator(0)
+    def view_revision_form(uid):
+        temp = jinja_env.get_template('inventory/view_revision_form.html')
+        return temp.render()
+
 
 #    @w.post('/app/revisar_inventario')
 #    @dbcontext

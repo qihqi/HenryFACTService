@@ -1,0 +1,107 @@
+<html>
+    <head>
+        <title> Ver revisiones</title>
+        <style>
+            body {
+                text-align : center;
+            }
+            .cant {
+                text-align: right;
+            }
+            .codigo {
+                text-align: left;
+            }
+
+        </style>
+        <script src="/static/jquery.min.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script>
+            var current_id = {{ingreso.meta.uid}};
+            $(document).ready(function() {
+                $('#post_button').click(function() {
+                    var button = $(this);
+                    $.ajax({
+                        'url': '/app/api/ingreso/' + current_id,
+                        'type': 'PUT',
+                        'success': function(data) {
+                            $('#estado').html(data.status);
+                            button.text('Postear');
+                        },
+                        'error': function(ajax, statusText, error) {
+                            alert('Fallo de postear...');
+                            button.text('Postear');
+                            button.prop('disabled', false);
+                        }
+                    });
+                    button.text('Posteando...');
+                    button.prop('disabled', true);
+                });
+                $('#delete_button').click(function() {
+                    var button = $(this);
+                    $.ajax({
+                        'url': '/app/api/ingreso/' + current_id,
+                        'type': 'DELETE',
+                        'success': function(data) {
+                            $('#estado').html(data.status);
+                            button.text('Eliminar');
+                        },
+                        'error': function(ajax, statusText, error) {
+                            alert('Fallo de eliminar...');
+                            button.text('Eliminar');
+                            button.prop('disabled', false);
+                        }
+                    });
+                    button.text('Eliminando...');
+                    button.prop('disabled', true);
+                });
+            });
+
+        </script>
+    </head>
+
+    <body>
+        <button onClick="window.print();" > Imprimir </button>
+        <button onClick="window.location='/app';" > Regresar al principio </button>
+        <h3>
+		Ver transacciones de inventario
+        </h3>
+	<form>
+		<input type="text" placeholder="codigos" />
+		<input type="submit" />
+	</form>
+        <table align="center" width=600>
+            <tr>
+                <th width=100>Fecha</th>
+                <td>{{ingreso.meta.timestamp}}</td>
+		{% if not revision %}
+                <th width=100>Estado</th>
+                <td id="estado">{{ingreso.meta.status}}</td>
+                <td><button id="post_button"{% if ingreso.meta.status != 'NUEVO' %}disabled="true"{% endif %}>Postear</button></td>
+                <td><button id="delete_button"{% if ingreso.meta.status == 'ELIMINADO' %}disabled="true"{% endif %}>Eliminar</button></td>
+		{% else %}
+		<th>Usuario:</th>
+		<td>{{ingreso.meta.user}}
+		{% endif %}
+            </tr>
+        </table>
+        <!--items-->
+        <br />
+        <hr />
+        <table width=600 align="center">
+            <tr>
+                <th width=100 class="codigo">Codigo</th>
+                <th>Nombre</th>
+                <th width=150 class="cant">Cambio de Cantidad</th>
+                <th>Unidad</th>
+            </tr>
+            {% for i in ingreso.items %}
+            <tr>
+                <td width=100>{{i.prod.prod_id}}</td>
+                <td>{{i.prod.name}}</td>
+                <td width=100 class="cant">{{i.cant}}</td>
+                <td width=100 class="cant">{{i.prod.unit}}</td>
+            </tr>
+            {%endfor %}
+        </table>
+    </body>
+</html>
