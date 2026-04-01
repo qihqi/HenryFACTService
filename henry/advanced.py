@@ -183,6 +183,11 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
         for price in all_prices:
             prices_by_prod_id[price.prod_id].append(price)
 
+        quantity_by_itemgroup = {}
+        for itemgroup in all_itemgroups:
+            count_by_bodega, _, _ = transactionapi.get_current_quantity_and_change_dates(itemgroup.uid)
+            quantity_by_itemgroup[itemgroup.uid] = count_by_bodega
+
         def get_lowest_unit_price_cents(itemgroup):
             lowest = None
             for item in items_by_ig[itemgroup.uid]:
@@ -209,8 +214,7 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
             review_rows = []
             total_cents = 0
             for itemgroup in all_itemgroups:
-                count_by_bodega, _, _ = transactionapi.get_current_quantity_and_change_dates(itemgroup.uid)
-                quantity = count_by_bodega.get(bodega.id, Decimal(0))
+                quantity = quantity_by_itemgroup[itemgroup.uid].get(bodega.id, Decimal(0))
                 if not quantity:
                     continue
                 price_cents = get_lowest_unit_price_cents(itemgroup)
