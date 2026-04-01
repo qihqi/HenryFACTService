@@ -94,6 +94,26 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
                          InvMovementType.DELETE_INGRESS,
                          InvMovementType.DELETE_TRANFER):
                 return f'/app/ingreso/{id_}'
+
+        def translate_type(type_):
+            if type_ == InvMovementType.INITIAL:
+                return 'initial'
+            if type_ == InvMovementType.SALE:
+                return 'venta'
+            if type_ == InvMovementType.DELETE_SALE:
+                return 'borrar_venta'
+            if type_ == InvMovementType.INGRESS:
+                return 'ingreso'
+            if type_ == InvMovementType.EGRESS:
+                return 'egreso'
+            if type_ == InvMovementType.TRANSFER:
+                return 'transferencia'
+            if type_ == InvMovementType.DELETE_EGRESS:
+                return 'borrar_egreso'
+            if type_ == InvMovementType.DELETE_INGRESS:
+                return 'borrar_ingreso'
+            if type_ == InvMovementType.DELETE_TRANFER:
+                return 'borrar_tranferencia'
             
         if prod_detail is None:
             msg = f'Codigo {prod_id} no encontrado'
@@ -104,6 +124,7 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
                 t.to_inv_name = id_to_name[t.to_inv_id]
                 t.from_inv_name = id_to_name[t.from_inv_id]
                 t.ref_link = get_ref_link(t.type, t.reference_id)
+                t.type = translate_type(t.type)
             changes = transactionapi.get_changes_from_transactions(trans)
             changes = [(id_to_name[b], q) for b, q in changes.items() if b not in (None, -1)]
 
