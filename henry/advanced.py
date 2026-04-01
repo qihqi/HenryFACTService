@@ -210,6 +210,8 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
 
         sections = []
         for bodega in bodegas:
+            if bodega.id == -1:
+                continue
             rows = []
             review_rows = []
             total_cents = 0
