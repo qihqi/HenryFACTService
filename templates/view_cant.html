@@ -1,74 +1,46 @@
 {%extends "base.html" %}
 {% block script %}
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-<script>
-    $(document).ready(function() {
-        $('.guardar').click(function() {
-            alert('called');
-            var num = $(this).attr('num');
-            var codigo = $(this).attr('codigo');
-            var alm = $(this).attr('alm');
-            var codigo = $(this).attr('codigo');
-            var alm = $(this).attr('alm');
-            var url = '/api/alm/' + alm + '/producto/' + encodeURIComponent(codigo);
-            var data = {
-                precio1: $('#' + num + '-precio1').val(),
-                precio2: $('#' + num + '-precio2').val(),
-                nombre: $('#' + num + '-num').val(),
-                prod_id: $('#' + num + '-nombre').val(),
-            };
-            data = JSON.stringify(data);
-            alert(data);
-            $.ajax({
-                url: url,
-                type: 'PUT',
-                data: data,
-                success: function(result) {
-                    alert(result);
-                },
-                failure: function(error) {
-                    alert(error);
-                }
-            });
-        });
-        $('.eliminar').click(function() {
-            var codigo = $(this).attr('codigo');
-            var alm = $(this).attr('alm');
-            var url = '/api/alm/' + alm + '/producto/' + encodeURIComponent(codigo);
-            $.ajax({
-                url: url,
-                type: 'DELETE',
-                success: function(result) {
-                    $('tr#' + codigo).remove();
-                },
-                failure: function(error) {
-                    alert(error);
-                }
-            });
-        });
-    });
-</script>
+<style>
+th, td {
+  padding: 15px;
+}
+</style>
 {% endblock %}
 {%block content%}
 <div>
-    <table>
-        {% for p in prods %}
-        <tr id="{{p.codigo}}">
+    <h4>
+        Productos no encontrados: {% for p in prod_ids_not_found %} p, {% endfor %}
+    </h4>
+    <form>
+        <p>Ponga codigos separados por coma para buscar</p>
+        <textarea rows=10 cols=50 type="textarea" name="prod_ids" placeholder="Codigos separados por coma (,)"
+        >{{prod_ids}}</textarea>
+        <input type="submit" name="submit" value="Buscar"/>
+    </form>
 
-		<td><p id="{{loop.index}}-codigo" >{{p[0].prod_id}} <p/></td>
-		<td><p id="{{loop.index}}-nombre" >{{p[0].name}} <p/></td>
-		<td><p id="{{loop.index}}-cant" >
-			<ul>
-	          	{%for bod, val in p[1].items() %} 
-			  <li> Bodega={{bod}}, Cantidad={{val}} </li>
-			{% endfor %}
-			</ul>
+    {% for p in prods %}
+		<p id="{{loop.index}}-uid" >Codigo: {{p[0].prod_id}} <p/>
+		<p id="{{loop.index}}-nombre" >Nombre: {{p[0].name}} <p/>
+		<p id="{{loop.index}}-nombre" >Ultimo cambio: {{p[2]}} <p/>
+        <p> <a href="{{p[4]}}">Ver ultimos cambios de inventario</a></p>
 
-	            <p/></td>
-
-        </tr>
-        {% endfor %}
-    </table>
+        <table>
+            <tr>
+                <th>Bodega</th>
+                <th>Cantidad</th>
+                <th>Fecha de revision</th>
+            </tr>
+            {%for bod, val in p[1].items() %} 
+            <tr>
+                <td>{{inv_id_to_name[bod]}}</td>
+                <td>{{val}}</td>
+                <td>{{p[3].get(bod)}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <hr />
+    {% endfor %}
 </div>
 
 {% endblock %}

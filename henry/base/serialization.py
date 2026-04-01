@@ -20,6 +20,7 @@ def parse_iso_datetime(datestring: str) -> datetime.datetime:
 
 
 def parse_iso_date(datestring: str) -> datetime.date:
+    datestring = datestring[:10]
     parts = list(map(int, datestring.split('-')))[:3]
     return datetime.date(*parts)  # type: ignore
 
@@ -65,7 +66,7 @@ def deserialize(cls, input_obj):
             return deserialize(arg_types[0], input_obj)
 
         if issubclass(origin_types, Sequence):
-            return [deserialize(arg_types[0], i) for i in input_obj]
+            return [deserialize(atype, i) for atype, i in zip(arg_types, input_obj)]
 
     if isinstance(input_obj, cls):  # for int, float, str
         return input_obj

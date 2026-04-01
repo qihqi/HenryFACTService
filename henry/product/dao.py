@@ -6,6 +6,7 @@ import json
 import os
 import dataclasses
 
+from henry.base.serialization import parse_iso_date
 from henry.base.fileservice import FileService
 from henry.base.dbapi import SerializableDB, DBApiGeneric
 from henry.base.serialization import json_dumps, SerializableData
@@ -227,6 +228,8 @@ class InventoryMovement(SerializableData):
 
 
 class InventoryApi(object):
+    LAST_INIT_DATE_FILE_NAME = '__last_init'
+
     def __init__(self, fileservice: FileService):
         self.fileservice = fileservice
 
@@ -246,10 +249,45 @@ class InventoryApi(object):
             inv_movement.itemgroup_id,
             inv_movement.timestamp.date())
         self.fileservice.append_file(path, json_dumps(inv_movement))
+        if inv_movement.type == InvMovementType.INITIAL:
+            self._update_init_dates(inv_movement.itemgroup_id, inv_movement.timestamp.date(),
+                [inv_movement.to_inv_id]
+            )
 
     def bulk_save(self, trans: Iterable[InventoryMovement]):
         for t in trans:
             self.save(t)
+
+    def _get_init_dates(self, igid):
+        init_filename = os.path.join(str(igid), self.LAST_INIT_DATE_FILE_NAME)
+        init_filename = self.fileservice.make_fullpath(init_filename)
+        if os.path.exists(init_filename):
+            old_record = self.fileservice.get_file(init_filename)
+            record_obj = json.loads(old_record) # dict of bodega_id to time
+            record_obj = {int(key): parse_iso_date(value) for key, value in record_obj.items()}
+            return record_obj
+        return {}
+
+    def _update_init_dates(self, igid, date, invs):
+        record = self._get_init_dates(igid)
+        for a in invs:
+            record[a] = date
+        init_filename = os.path.join(str(igid), self.LAST_INIT_DATE_FILE_NAME)
+        self.fileservice.put_file(init_filename, json_dumps(record))
+        
+    def reset_initial_quantity(self, igid, prod_id, date, inv_to_quantity):
+        for inv_id, quantity in inv_to_quantity.items():
+            inv_movement = InventoryMovement(
+                from_inv_id=-1,
+                to_inv_id=inv_id,
+                quantity=quantity,
+                itemgroup_id=igid,
+                prod_id=prod_id,
+                timestamp=datetime.datetime.combine(date, datetime.time(23, 59, 59)),
+                type=InvMovementType.INITIAL,
+            )
+            self.save(inv_movement)
+        self._update_init_dates(igid, date, inv_to_quantity)
 
     def list_transactions(
             self, igid: int, start_date: datetime.date, end_date: datetime.date
@@ -261,6 +299,10 @@ class InventoryApi(object):
                 start_date,
                 datetime.date) and start_date is not None:
             raise ValueError('start_date must be a valid date object')
+        if isinstance(end_date, datetime.datetime):
+            end_date = end_date.date()
+        if isinstance(start_date, datetime.datetime):
+            start_date = start_date.date()
         root = self.fileservice.make_fullpath(str(igid))
         if not os.path.exists(root):
             return
@@ -276,28 +318,57 @@ class InventoryApi(object):
                 if f >= InventoryApi._year_month(start_date))
             all_fname = list(map(functools.partial(
                 os.path.join, str(igid)), all_fname))
-            for x in self.fileservice.get_file_lines(all_fname):
-                item = InventoryMovement.deserialize(json.loads(x))
-                if item.timestamp is not None:
-                    if start_date <= item.timestamp.date() <= end_date:
-                        yield item
+            all_fname = sorted(all_fname)
 
-    @staticmethod
-    def _apply_movement(
-            quantities: DefaultDict[int, Decimal],
-            movement: InventoryMovement):
-        if movement.type == InvMovementType.INITIAL:
-            if movement.to_inv_id is not None and movement.quantity is not None:
-                quantities[movement.to_inv_id] = movement.quantity
-            return
-        if movement.from_inv_id is not None and movement.quantity:
-            quantities[movement.from_inv_id] -= movement.quantity
-        if movement.to_inv_id is not None and movement.quantity:
-            quantities[movement.to_inv_id] += movement.quantity
+            for fname in all_fname:
+                content = []
+                for x in self.fileservice.get_file_lines([fname]):
+                    if not x.strip():
+                        continue
+                    try:
+                        item = InventoryMovement.deserialize(json.loads(x))
+                    except json.decoder.JSONDecodeError:
+                        continue
+                    if item.timestamp is not None:
+                        if start_date <= item.timestamp.date() <= end_date:
+                            content.append(item)
+                content = sorted(content, key=lambda a: a.timestamp)
+                yield from content
 
-    def get_current_quantity(self, igid: int):
-        quantities = defaultdict(Decimal)  # type: DefaultDict[int, Decimal]
-        for movement in self.list_transactions(
-                igid, None, datetime.date.today()):
-            self._apply_movement(quantities, movement)
-        return quantities
+
+    def get_changes(self, igid: int, start_date: datetime.date,
+                    end_date: datetime.date) -> Mapping[int, Decimal]:
+        transactions = self.list_transactions(igid, start_date, end_date)
+        return self.get_changes_from_transactions(transactions)
+
+    def get_changes_from_transactions(self, transactions):
+        deltas = defaultdict(Decimal)  # type: DefaultDict[int, Decimal]
+        for x in transactions:
+            if x.type == InvMovementType.INITIAL:
+                if x.quantity:
+                    deltas[x.to_inv_id] = x.quantity
+            else:
+                if x.from_inv_id is not None:
+                    if x.quantity:
+                        deltas[x.from_inv_id] -= x.quantity
+                if x.to_inv_id is not None:
+                    if x.quantity:
+                        deltas[x.to_inv_id] += x.quantity
+        return deltas
+
+    def get_current_quantity_and_change_dates(self, igid: int):
+        # get last account
+        init_dates = self._get_init_dates(igid)
+        start_date = datetime.date(2000, 1, 1)
+        if init_dates:
+            start_date = min(init_dates.values())
+        end_date = datetime.date.today()
+
+        transactions = list(self.list_transactions(igid, start_date, end_date))
+        changes = self.get_changes_from_transactions(transactions)
+        if transactions:
+            last_change = transactions[-1].timestamp
+        else:
+            last_change = None
+
+        return defaultdict(Decimal, changes), last_change, init_dates 

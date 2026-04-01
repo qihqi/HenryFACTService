@@ -8,7 +8,7 @@ from sqlalchemy import desc
 
 from henry.accounting.acct_schema import ObjType, NComment
 from henry.base.session_manager import DBContext
-from henry.product.dao import ProdItemGroup, ProdItem, PriceList, Category, Store
+from henry.product.dao import ProdItemGroup, ProdItem, PriceList, Category, Store, Bodega, InvMovementType
 from henry.invoice.coreschema import NNota
 from henry.dao.document import Item
 from henry.invoice.dao import PaymentFormat
@@ -23,24 +23,99 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
     @auth_decorator(0)
     def index():
         return '''
-        <a href="/app/pricelist">Price List</a>
-        <a href="/app/vendidos_por_categoria_form">Por Categoria</a>
-        <a href="/app/ver_transacciones">Transacciones</a>
-        <a href="/app/ver_ventas">Ventas</a>
+        <p><a href="/app/pricelist">Price List</a></p>
+        <p><a href="/app/vendidos_por_categoria_form">Por Categoria</a></p>
+        <p><a href="/app/ver_transacciones">Transacciones</a></p>
+        <p><a href="/app/ver_ventas">Ventas</a></p>
+        <p><a href="/app/adv/view_cant">Ver cantidades</a></p>
         '''
 
     @w.get('/app/adv/view_cant')
     @dbcontext
     def view_cant():
+        prod_ids = request.query.get('prod_ids', "")
         prods = []
-        for i, x in enumerate(dbapi.search(ProdItemGroup)):
-            #TODO(remove)
-            if i > 100:
-                break
-            prods.append((x, transactionapi.get_current_quantity(x.uid)))
+        prod_ids_not_found = []
+        if prod_ids:
+            for prod_id in prod_ids.split(","):
+                prod_id = prod_id.strip()
+                prod_detail = dbapi.getone(ProdItemGroup, prod_id=prod_id)
+                if prod_detail:
+                    count, last_change_date, last_revision_date_dict = transactionapi.get_current_quantity_and_change_dates(prod_detail.uid)
+                    if -1 in count:
+                        del count[-1]
+                    end = last_change_date.date() if last_change_date else datetime.date.today()
+                    start = end - datetime.timedelta(days=30)
+                    inv_change_link = f'/app/adv/view_inventory_change/{prod_detail.prod_id}?start={start.isoformat()}&end={end.isoformat()}'
+                    prods.append((prod_detail, count, last_change_date, last_revision_date_dict, inv_change_link))
+                else:
+                    prod_ids_not_found.append(prod_id)
         # print(prods)
+        invs = dbapi.search(Bodega)
+        inv_id_to_name = {b.id: b.nombre for b in invs}
+        inv_id_to_name[-1] = '-'
+        inv_id_to_name[None] = '-'
         temp = jinja_env.get_template('view_cant.html')
-        return temp.render(prods=prods)
+        return temp.render(
+            prod_ids=prod_ids, 
+            prods=prods, 
+            prod_ids_not_found=prod_ids_not_found, 
+            inv_id_to_name=inv_id_to_name)
+
+    @w.get('/app/adv/view_inventory_change/<prod_id>')
+    @dbcontext
+    def view_inventory_change(prod_id):
+        today = datetime.date.today()
+        start, end = parse_start_end_date_with_default(
+            request.query, today - datetime.timedelta(days=7), today)
+        prod_detail = dbapi.getone(ProdItemGroup, prod_id=prod_id)
+        msg = ''
+        trans = []
+        changes = {}
+        invs = dbapi.search(Bodega)
+        id_to_name = {b.id: b.nombre for b in invs}
+        id_to_name[-1] = '-'
+        id_to_name[None] = '-'
+
+        def get_ref_link(type_, id_):
+            if type_ == InvMovementType.INITIAL:
+                if id_ is not None:
+                    return f'/app/revision/{id_}'
+                else:
+                    return '' 
+            if type_ == InvMovementType.SALE:
+                return f'/app/nota/{id_}'
+            if type_ == InvMovementType.DELETE_SALE:
+                return f'/app/nota/{id_}'
+            if type_ in (InvMovementType.INGRESS,
+                         InvMovementType.EGRESS,
+                         InvMovementType.TRANSFER,
+                         InvMovementType.DELETE_EGRESS,
+                         InvMovementType.DELETE_INGRESS,
+                         InvMovementType.DELETE_TRANFER):
+                return f'/app/ingreso/{id_}'
+            
+        if prod_detail is None:
+            msg = f'Codigo {prod_id} no encontrado'
+        else:
+            trans = list(transactionapi.list_transactions(prod_detail.uid, start, end))
+            # add helper info to help render
+            for t in trans:
+                t.to_inv_name = id_to_name[t.to_inv_id]
+                t.from_inv_name = id_to_name[t.from_inv_id]
+                t.ref_link = get_ref_link(t.type, t.reference_id)
+            changes = transactionapi.get_changes_from_transactions(trans)
+            changes = [(id_to_name[b], q) for b, q in changes.items() if b not in (None, -1)]
+
+        temp = jinja_env.get_template('view_inventory_change.html')
+        return temp.render(
+            start=start,
+            end=end,
+            prod=prod_detail, 
+            inv_movements=trans,
+            changes=changes,
+            msg = msg,
+            )
 
     class Prod(object):
         def __init__(self):
