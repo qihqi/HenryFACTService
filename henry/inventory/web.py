@@ -1,5 +1,6 @@
 import datetime
 import traceback
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Callable
 
 from bottle import Bottle, request, abort, redirect, json_loads
@@ -13,7 +14,7 @@ from henry.base.session_manager import DBContext
 from henry.common import transmetadata_from_form, items_from_form
 from henry.dao.document import DocumentApi
 
-from henry.product.dao import Bodega
+from henry.product.dao import Bodega, PriceList, ProdItem
 
 from .dao import TransType, Transferencia, RevisionMetadata, Revision
 from .schema import NRevisionMetadata
@@ -93,6 +94,34 @@ def make_inv_wsgi(
     w = Bottle()
     dbcontext = DBContext(dbapi.session)
 
+    def get_lowest_unit_price_cents(prod):
+        prices = dbapi.search(PriceList, prod_id=prod.prod_id)
+        lowest = None
+        for p in prices:
+            if lowest is None:
+                lowest = p.precio1
+            if p.precio1 > 0:
+                lowest = min([lowest, p.precio1])
+            if p.precio2 > 0:
+                lowest = min([lowest, p.precio2])
+        return lowest            
+
+    def attach_price_details(doc):
+        grand_total = 0
+        has_prices = False
+        for item in doc.items:
+            unit_price_cents = get_lowest_unit_price_cents(item.prod)
+            item.unit_price_cents = unit_price_cents
+            item.total_price_cents = None
+            if unit_price_cents is not None:
+                item.total_price_cents = int(
+                    (Decimal(unit_price_cents) * item.cant).quantize(
+                        Decimal('1'), rounding=ROUND_HALF_UP))
+                grand_total += item.total_price_cents
+                has_prices = True
+        doc.meta.grand_total_price_cents = grand_total
+        doc.meta.has_prices = has_prices
+
     @w.get('/app/ver_ingreso_form')
     @dbcontext
     @auth_decorator(0)
@@ -112,6 +141,7 @@ def make_inv_wsgi(
             trans.meta.origin = dbapi.get(trans.meta.origin, Bodega).nombre
         if trans.meta.dest is not None:
             trans.meta.dest = dbapi.get(trans.meta.dest, Bodega).nombre
+        attach_price_details(trans)
         return temp.render(ingreso=trans)
 
     @w.get('/app/crear_ingreso')
@@ -202,6 +232,7 @@ def make_inv_wsgi(
         if not trans:
             return 'Documento con codigo {} no existe'.format(uid)
         trans.meta.bodega_name = dbapi.get(trans.meta.bodega_id, Bodega).nombre
+        attach_price_details(trans)
         temp = jinja_env.get_template('inventory/ingreso.html')
         return temp.render(ingreso=trans, revision=True)
 

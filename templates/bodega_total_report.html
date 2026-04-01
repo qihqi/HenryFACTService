@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Total de la bodega</title>
+    <style>
+        body {
+            text-align: center;
+        }
+        table {
+            margin: 0 auto 30px auto;
+            width: 800px;
+        }
+        .cant {
+            text-align: right;
+        }
+        .codigo {
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<h2>Total de la bodega</h2>
+
+{% for section in sections %}
+<h3>{{ section.bodega.nombre }}</h3>
+<h4>Total general: {{ value_from_cents(section.total_cents) }}</h4>
+
+<table>
+    <tr>
+        <th class="codigo">Codigo</th>
+        <th>Producto</th>
+        <th class="cant">Cantidad</th>
+        <th class="cant">Precio</th>
+        <th class="cant">Subtotal</th>
+    </tr>
+    {% for row in section.rows %}
+    <tr>
+        <td class="codigo">{{ row.prod.prod_id }}</td>
+        <td>{{ row.prod.name }}</td>
+        <td class="cant">{{ row.quantity }}</td>
+        <td class="cant">{{ value_from_cents(row.price_cents) }}</td>
+        <td class="cant">{{ value_from_cents(row.subtotal_cents) }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+        <td colspan="4" class="cant"><strong>Total</strong></td>
+        <td class="cant"><strong>{{ value_from_cents(section.total_cents) }}</strong></td>
+    </tr>
+</table>
+
+{% if section.review_rows %}
+<h4>A revisar: {{ section.bodega.nombre }}</h4>
+<table>
+    <tr>
+        <th class="codigo">Codigo</th>
+        <th>Producto</th>
+        <th class="cant">Cantidad</th>
+        <th class="cant">Precio</th>
+        <th class="cant">Subtotal</th>
+    </tr>
+    {% for row in section.review_rows %}
+    <tr>
+        <td class="codigo">{{ row.prod.prod_id }}</td>
+        <td>{{ row.prod.name }}</td>
+        <td class="cant">{{ row.quantity }}</td>
+        <td class="cant">{{ value_from_cents(row.price_cents) }}</td>
+        <td class="cant">{{ value_from_cents(row.subtotal_cents) }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+{% endfor %}
+</body>
+</html>
