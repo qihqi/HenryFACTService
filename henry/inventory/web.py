@@ -1,5 +1,6 @@
 import datetime
 import traceback
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Callable
 
 from bottle import Bottle, request, abort, redirect, json_loads
@@ -13,7 +14,7 @@ from henry.base.session_manager import DBContext
 from henry.common import transmetadata_from_form, items_from_form
 from henry.dao.document import DocumentApi
 
-from henry.product.dao import Bodega
+from henry.product.dao import Bodega, PriceList, ProdItem
 
 from .dao import TransType, Transferencia, RevisionMetadata, Revision
 from .schema import NRevisionMetadata
@@ -93,6 +94,48 @@ def make_inv_wsgi(
     w = Bottle()
     dbcontext = DBContext(dbapi.session)
 
+    def get_lowest_unit_price_cents(prod):
+        candidate_prod_ids = [prod.prod_id]
+        if prod.itemgroupid is not None:
+            candidate_prod_ids = [
+                item.prod_id for item in dbapi.search(ProdItem, itemgroupid=prod.itemgroupid)
+                if item.prod_id
+            ]
+        lowest = None
+        for prod_id in candidate_prod_ids:
+            prices = dbapi.search(PriceList, prod_id=prod_id)
+            item = dbapi.getone(ProdItem, prod_id=prod_id)
+            if item is None:
+                continue
+            multiplier = Decimal(item.multiplier or 1)
+            if multiplier == 0:
+                continue
+            for price in prices:
+                if price.precio1 is None:
+                    continue
+                unit_price = Decimal(price.precio1) / multiplier
+                if lowest is None or unit_price < lowest:
+                    lowest = unit_price
+        if lowest is None:
+            return None
+        return int(lowest.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+
+    def attach_price_details(doc):
+        grand_total = 0
+        has_prices = False
+        for item in doc.items:
+            unit_price_cents = get_lowest_unit_price_cents(item.prod)
+            item.unit_price_cents = unit_price_cents
+            item.total_price_cents = None
+            if unit_price_cents is not None:
+                item.total_price_cents = int(
+                    (Decimal(unit_price_cents) * item.cant).quantize(
+                        Decimal('1'), rounding=ROUND_HALF_UP))
+                grand_total += item.total_price_cents
+                has_prices = True
+        doc.meta.grand_total_price_cents = grand_total
+        doc.meta.has_prices = has_prices
+
     @w.get('/app/ver_ingreso_form')
     @dbcontext
     @auth_decorator(0)
@@ -112,6 +155,7 @@ def make_inv_wsgi(
             trans.meta.origin = dbapi.get(trans.meta.origin, Bodega).nombre
         if trans.meta.dest is not None:
             trans.meta.dest = dbapi.get(trans.meta.dest, Bodega).nombre
+        attach_price_details(trans)
         return temp.render(ingreso=trans)
 
     @w.get('/app/crear_ingreso')
@@ -202,6 +246,7 @@ def make_inv_wsgi(
         if not trans:
             return 'Documento con codigo {} no existe'.format(uid)
         trans.meta.bodega_name = dbapi.get(trans.meta.bodega_id, Bodega).nombre
+        attach_price_details(trans)
         temp = jinja_env.get_template('inventory/ingreso.html')
         return temp.render(ingreso=trans, revision=True)
 
