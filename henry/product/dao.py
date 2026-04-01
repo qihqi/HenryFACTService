@@ -184,32 +184,6 @@ def quantity_tuple(
     return [(x[0], Decimal(x[1])) for x in quantities]
 
 
-#  saves the item stock count at a given time
-@dataclasses.dataclass
-class InventorySnapshot(SerializableData):
-    """
-    quantity is a list of tuples (bodega_id, quantity)
-    """
-    creation_time: Optional[datetime.datetime] = None
-    itemgroup_id: Optional[int] = None
-    prod_id: Optional[str] = None
-    quantity: List[Tuple[int, Decimal]] = dataclasses.field(
-        default_factory=lambda: [])
-    upto_date: Optional[datetime.date] = None
-    last_upto_date: Optional[datetime.date] = None
-    last_quantity: List[Tuple[int, Decimal]] = dataclasses.field(
-        default_factory=lambda: [])
-
-    # _fields = (
-    #     ('creation_time', parse_iso_datetime),
-    #     ('itemgroup_id', int),
-    #     ('prod_id', str),
-    #     ('quantity', quantity_tuple),
-    #     ('upto_date', parse_iso_date),
-    #     ('last_upto_date', parse_iso_date),
-    #     ('last_quantity', quantity_tuple))
-
-
 class InvMovementType(object):
     SALE = 'sale'
     TRANSFER = 'transfer'
@@ -253,8 +227,6 @@ class InventoryMovement(SerializableData):
 
 
 class InventoryApi(object):
-    SNAPSHOT_FILE_NAME = '__snapshot'
-
     def __init__(self, fileservice: FileService):
         self.fileservice = fileservice
 
@@ -279,16 +251,6 @@ class InventoryApi(object):
         for t in trans:
             self.save(t)
 
-    def get_past_records(self, igid: int) -> List[InventorySnapshot]:
-        snapshotname = os.path.join(str(igid), self.SNAPSHOT_FILE_NAME)
-        snapshot_path = self.fileservice.make_fullpath(snapshotname)
-        if os.path.exists(snapshot_path):
-            records = self.fileservice.get_file(snapshotname)
-            if records:
-                return list(
-                    map(InventorySnapshot.deserialize, json.loads(records)))
-        return []
-
     def list_transactions(
             self, igid: int, start_date: datetime.date, end_date: datetime.date
     ) -> Iterator[InventoryMovement]:
@@ -300,6 +262,8 @@ class InventoryApi(object):
                 datetime.date) and start_date is not None:
             raise ValueError('start_date must be a valid date object')
         root = self.fileservice.make_fullpath(str(igid))
+        if not os.path.exists(root):
+            return
         last_month = InventoryApi._year_month(end_date)
         all_fname = [f for f in os.listdir(root) if f <= last_month]
         if all_fname:
@@ -307,8 +271,9 @@ class InventoryApi(object):
                 smallest = min(all_fname)
                 year, month = list(map(int, smallest.split('-')))
                 start_date = datetime.date(year, month, 1)
-            all_fname = [f for f in all_fname if
-                         f >= InventoryApi._year_month(start_date)]
+            all_fname = sorted(
+                f for f in all_fname
+                if f >= InventoryApi._year_month(start_date))
             all_fname = list(map(functools.partial(
                 os.path.join, str(igid)), all_fname))
             for x in self.fileservice.get_file_lines(all_fname):
@@ -317,64 +282,22 @@ class InventoryApi(object):
                     if start_date <= item.timestamp.date() <= end_date:
                         yield item
 
-    def get_changes(self, igid: int, start_date: datetime.date,
-                    end_date: datetime.date) -> Mapping[int, Decimal]:
-        deltas = defaultdict(Decimal)  # type: DefaultDict[int, Decimal]
-        for x in self.list_transactions(igid, start_date, end_date):
-            if x.from_inv_id is not None:
-                if x.quantity:
-                    deltas[x.from_inv_id] -= x.quantity
-            if x.to_inv_id is not None:
-                if x.quantity:
-                    deltas[x.to_inv_id] += x.quantity
-        return deltas
-
-    def _write_snapshot(self, igid: int, records):
-        snapshotname = os.path.join(str(igid), self.SNAPSHOT_FILE_NAME)
-        self.fileservice.put_file(snapshotname, json_dumps(records))
-
-    def take_snapshot_to_date(self, igid: int, end_date: datetime.date):
-        new_record, records = self._get_new_snapshot_to_date(igid, end_date)
-        records.insert(0, new_record)
-        self._write_snapshot(igid, records[:-1])
-
-    def _get_new_snapshot_to_date(self,
-                                  igid: int,
-                                  end_date: datetime.date) -> Tuple[InventorySnapshot,
-                                                                    List[InventorySnapshot]]:
-        # get last account
-        records = self.get_past_records(igid)
-        start_date = datetime.date(2000, 1, 1)
-        if records:
-            print('HERE')
-            print(records)
-            # starting date is one day after lasttime!
-            assert records[0].upto_date is not None
-            start_date = records[0].upto_date + datetime.timedelta(days=1)
-        deltas = self.get_changes(igid, start_date, end_date)
-        last_quantities = self._get_last_snapshot_quantities(records)
-
-        new_quantities = {}
-        for inv_id in set(deltas.keys()) | set(last_quantities.keys()):
-            new_quantities[inv_id] = deltas[inv_id] + last_quantities[inv_id]
-
-        new_record = InventorySnapshot()
-        new_record.upto_date = end_date
-        new_record.creation_time = datetime.datetime.now()
-        new_record.quantity = list(new_quantities.items())
-        new_record.last_quantity = list(last_quantities.items())
-        new_record.last_upto_date = start_date
-
-        return new_record, records
-
-    def _get_last_snapshot_quantities(self, records: List[InventorySnapshot]):
-        last_quantities: DefaultDict[int, Decimal] = defaultdict(Decimal)
-        if records:
-            for inv_id, quantity in records[0].quantity:
-                last_quantities[inv_id] = quantity
-        return last_quantities
+    @staticmethod
+    def _apply_movement(
+            quantities: DefaultDict[int, Decimal],
+            movement: InventoryMovement):
+        if movement.type == InvMovementType.INITIAL:
+            if movement.to_inv_id is not None and movement.quantity is not None:
+                quantities[movement.to_inv_id] = movement.quantity
+            return
+        if movement.from_inv_id is not None and movement.quantity:
+            quantities[movement.from_inv_id] -= movement.quantity
+        if movement.to_inv_id is not None and movement.quantity:
+            quantities[movement.to_inv_id] += movement.quantity
 
     def get_current_quantity(self, igid: int):
-        new_record, _ = self._get_new_snapshot_to_date(
-            igid, datetime.date.today())
-        return defaultdict(Decimal, new_record.quantity)
+        quantities = defaultdict(Decimal)  # type: DefaultDict[int, Decimal]
+        for movement in self.list_transactions(
+                igid, None, datetime.date.today()):
+            self._apply_movement(quantities, movement)
+        return quantities
