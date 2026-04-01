@@ -1,0 +1,101 @@
+{%extends "base.html" %}
+{% block script %}
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.guardar').click(function() {
+            alert('called');
+            var num = $(this).attr('num');
+            var codigo = $(this).attr('codigo');
+            var alm = $(this).attr('alm');
+            var codigo = $(this).attr('codigo');
+            var alm = $(this).attr('alm');
+            var url = '/api/alm/' + alm + '/producto/' + encodeURIComponent(codigo);
+            var data = {
+                precio1: $('#' + num + '-precio1').val(),
+                precio2: $('#' + num + '-precio2').val(),
+                nombre: $('#' + num + '-num').val(),
+                prod_id: $('#' + num + '-nombre').val(),
+            };
+            data = JSON.stringify(data);
+            alert(data);
+            $.ajax({
+                url: url,
+                type: 'PUT',
+                data: data,
+                success: function(result) {
+                    alert(result);
+                },
+                failure: function(error) {
+                    alert(error);
+                }
+            });
+        });
+        $('.eliminar').click(function() {
+            var codigo = $(this).attr('codigo');
+            var alm = $(this).attr('alm');
+            var url = '/api/alm/' + alm + '/producto/' + encodeURIComponent(codigo);
+            $.ajax({
+                url: url,
+                type: 'DELETE',
+                success: function(result) {
+                    $('tr#' + codigo).remove();
+                },
+                failure: function(error) {
+                    alert(error);
+                }
+            });
+        });
+    });
+</script>
+<style>
+th, td {
+  padding: 15px;
+}
+</style>
+{% endblock %}
+{%block content%}
+<div>
+    <h2>{{msg}}</h2>
+    <h2>{{prod.name}}</h2>
+    <h3>codigo = {{prod.prod_id}}</h2>
+
+    <form>
+        Escoja otra fecha:
+    {% from "macros.html" import select_bodega, start_end_date_oneline %}
+    {{ start_end_date_oneline(start, end) }}
+    <input type="submit" value="buscar"/>
+    <p>
+        Cambios por estos dias:
+        <ul>
+            {% for bodega, quantity in changes%}
+            <li>{{bodega}}: {{quantity}}</li>
+            {% endfor %}
+        </ul>
+    </p>
+    </form>
+    <table>
+        <tr>
+            <th>Fecha</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+            <th>tipo</th>
+            <th>Cantidad</th>
+            <th>Referencia</th>
+        </tr>
+        {% for t in inv_movements%}
+        <tr>
+
+		<td><p id="{{loop.index}}-nombre" >{{t.timestamp.date().isoformat()}} <p/></td>
+		<td><p id="{{loop.index}}-uid" >{{t.from_inv_name}} <p/></td>
+		<td><p id="{{loop.index}}-codigo" >{{t.to_inv_name}} <p/></td>
+		<td><p id="{{loop.index}}-nombre" >{{t.type}} <p/></td>
+		<td><p id="{{loop.index}}-codigo" >{{t.quantity}} <p/></td>
+		<td><p id="{{loop.index}}-nombre" >{% if t.ref_link %}<a href="{{t.ref_link}}">{{t.reference_id}}{%endif%}</a> <p/></td>
+
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+{% endblock %}

@@ -51,7 +51,7 @@ class InvMetadata(SerializableDB[NNota]):
 
     # client_id: Optional[str] = None
     user: Optional[str] = None
-    client: Client = Client()
+    client: Client = dataclasses.field(default_factory=Client)
     paid: Optional[bool] = None
     paid_amount: Optional[int] = None
     payment_format: Optional[str] = None

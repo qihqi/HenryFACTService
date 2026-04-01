@@ -16,6 +16,7 @@ from henry.dao.document import DocumentApi
 from henry.product.dao import Bodega
 
 from .dao import TransType, Transferencia, RevisionMetadata, Revision
+from .schema import NRevisionMetadata
 
 
 def make_inv_api(dbapi: DBApiGeneric,
@@ -165,13 +166,6 @@ def make_inv_wsgi(
             end=end,
             bodega=bodega)
 
-    @w.get('/app/revisar_inventario')
-    @dbcontext
-    @auth_decorator(0)
-    def revisar_inv_form():
-        temp = jinja_env.get_template('inventory/crear_revision.html')
-        return temp.render(bodegas=dbapi.search(Bodega))
-
     @w.get('/app/corregir_inventario')
     @dbcontext
     @auth_decorator(2)
@@ -211,83 +205,38 @@ def make_inv_wsgi(
         temp = jinja_env.get_template('inventory/ingreso.html')
         return temp.render(ingreso=trans, revision=True)
 
+    @w.get('/app/view_revision_form')
+    @dbcontext
+    @auth_decorator(0)
+    def view_revision_form():
+        # this doesnt work
+        temp = jinja_env.get_template('inventory/view_revision_form.html')
+        return temp.render()
 
-#    @w.post('/app/revisar_inventario')
-#    @dbcontext
-#    @auth_decorator(0)
-#    def post_revisar_inv():
-#        bodega_id = request.forms.get('bodega_id', None)
-#        if bodega_id is None:
-#            abort(400, 'bodega_id no existe')
-#        prod_ids = request.forms.getlist('prod_id')
-#        rev = revisionapi.save(bodega_id, get_user(request)['username'], prod_ids)
-#        redirect('/app/revision/{}'.format(rev.uid))
-#
-#    @w.get('/app/revision/<rid>')
-#    @dbcontext
-#    @auth_decorator(0)
-#    def get_revision(rid):
-#        meta = revisionapi.get(rid)
-#        bodega_name = dbapi.get(meta.bodega_id, Bodega).nombre
-#        items = []
-#        for y in meta.items:
-#            item = dbapi.getone(ProdCount,
-#                                prod_id=y.prod_id, bodega_id=meta.bodega_id)
-#            name = dbapi.getone(Product, codigo=y.prod_id).nombre
-#            item.nombre = name
-#            if y.inv_cant:
-#                item.cantidad = y.inv_cant
-#            if y.real_cant is not None:
-#                item.contado = y.real_cant
-#            items.append(item)
-#
-#        temp = jinja_env.get_template('inventory/revision.html')
-#        return temp.render(meta=meta, items=items, bodega_name=bodega_name)
-#
-#    @w.post('/app/revision/<rid>')
-#    @dbcontext
-#    @auth_decorator(0)
-#    def post_revision(rid):
-#        prods = {}
-#        for key, value in request.forms.items():
-#            prods[key.replace('prod-cant-', '')] = value
-#        revisionapi.update_count(rid, prods)
-#        redirect('/app/revision/{}'.format(rid))
-#
-#    @w.get('/app/list_revision')
-#    @dbcontext
-#    @auth_decorator(0)
-#    def list_revision():
-#        start, end = parse_start_end_date(request.query)
-#        if end is None:
-#            end = datetime.datetime.now()
-#        if start is None:
-#            start = end - datetime.timedelta(days=7)
-#
-#        revisions = dbapi.db_session.query(NInventoryRevision).filter(
-#            NInventoryRevision.timestamp <= end,
-#            NInventoryRevision.timestamp >= start)
-#
-#        temp = jinja_env.get_template('inventory/list_revisions.html')
-#        return temp.render(revisions=revisions, start=start, end=end)
-#
-#    @w.get('/app/revisiones')
-#    @dbcontext
-#    @auth_decorator(0)
-#    def revisiones_main():
-#        user = get_user(request)
-#        if 'level' not in user:
-#            userdb = dbapi.db_session.query(
-#                NUsuario).filter(NUsuario.username == user['username']).first()
-#            user['level'] = userdb.level
-#            beaker = request.environ['beaker.session']
-#            beaker['login_info'] = user
-#            beaker.save()
-#        level = user['level']
-#        print level
-#        if level < 2:
-#            return 'no autorizado'
-#        temp = jinja_env.get_template('inventory/revisiones.html')
-#        return temp.render()
+
+
+    @w.get('/app/list_revision')
+    @dbcontext
+    @auth_decorator(0)
+    def list_revision():
+        start, end = parse_start_end_date(request.query)
+        if end is None:
+            end = datetime.datetime.now()
+        if start is None:
+            start = end - datetime.timedelta(days=7)
+
+        revisions = dbapi.db_session.query(NRevisionMetadata).filter(
+            NRevisionMetadata.timestamp <= end,
+            NRevisionMetadata.timestamp >= start)
+
+        temp = jinja_env.get_template('inventory/list_revisions.html')
+        return temp.render(revisions=revisions, start=start, end=end)
+
+    @w.get('/app/revisiones')
+    @dbcontext
+    @auth_decorator(0)
+    def revisiones_main():
+        temp = jinja_env.get_template('inventory/revisiones.html')
+        return temp.render()
 
     return w
