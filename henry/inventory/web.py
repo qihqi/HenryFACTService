@@ -104,18 +104,12 @@ def make_inv_wsgi(
         lowest = None
         for prod_id in candidate_prod_ids:
             prices = dbapi.search(PriceList, prod_id=prod_id)
-            item = dbapi.getone(ProdItem, prod_id=prod_id)
-            if item is None:
-                continue
-            multiplier = Decimal(item.multiplier or 1)
-            if multiplier == 0:
-                continue
             for price in prices:
                 if price.precio1 is None:
                     continue
-                unit_price = Decimal(price.precio1) / multiplier
-                if lowest is None or unit_price < lowest:
-                    lowest = unit_price
+                raw_price = Decimal(price.precio1)
+                if lowest is None or raw_price < lowest:
+                    lowest = raw_price
         if lowest is None:
             return None
         return int(lowest.quantize(Decimal('1'), rounding=ROUND_HALF_UP))

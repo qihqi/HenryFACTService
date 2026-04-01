@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Total de la bodega</title>
+    <style>
+        body {
+            text-align: center;
+        }
+        table {
+            margin: 0 auto;
+        }
+        .cant {
+            text-align: right;
+        }
+        .codigo {
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<form>
+    {% from "macros.html" import selector %}
+    Bodega: {{ selector(bodegas, 'bodega_id', 'id', 'nombre', selected_bodega_id) }}
+    <input type="submit" value="Ver" />
+</form>
+
+<h3>Total de la bodega: {{ selected_bodega.nombre }}</h3>
+<h4>Total general: {{ value_from_cents(total_cents) }}</h4>
+
+<table width="800">
+    <tr>
+        <th class="codigo">Codigo</th>
+        <th>Producto</th>
+        <th class="cant">Cantidad</th>
+        <th class="cant">Precio</th>
+        <th class="cant">Subtotal</th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+        <td class="codigo">{{ row.prod.prod_id }}</td>
+        <td>{{ row.prod.name }}</td>
+        <td class="cant">{{ row.quantity }}</td>
+        <td class="cant">{{ value_from_cents(row.price_cents) }}</td>
+        <td class="cant">{{ value_from_cents(row.subtotal_cents) }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+        <td colspan="4" class="cant"><strong>Total</strong></td>
+        <td class="cant"><strong>{{ value_from_cents(total_cents) }}</strong></td>
+    </tr>
+</table>
+
+{% if review_rows %}
+<h3>A revisar</h3>
+<table width="800">
+    <tr>
+        <th class="codigo">Codigo</th>
+        <th>Producto</th>
+        <th class="cant">Cantidad</th>
+        <th class="cant">Precio</th>
+        <th class="cant">Subtotal</th>
+    </tr>
+    {% for row in review_rows %}
+    <tr>
+        <td class="codigo">{{ row.prod.prod_id }}</td>
+        <td>{{ row.prod.name }}</td>
+        <td class="cant">{{ row.quantity }}</td>
+        <td class="cant">{{ value_from_cents(row.price_cents) }}</td>
+        <td class="cant">{{ value_from_cents(row.subtotal_cents) }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+</body>
+</html>
