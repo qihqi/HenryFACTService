@@ -95,24 +95,16 @@ def make_inv_wsgi(
     dbcontext = DBContext(dbapi.session)
 
     def get_lowest_unit_price_cents(prod):
-        candidate_prod_ids = [prod.prod_id]
-        if prod.itemgroupid is not None:
-            candidate_prod_ids = [
-                item.prod_id for item in dbapi.search(ProdItem, itemgroupid=prod.itemgroupid)
-                if item.prod_id
-            ]
+        prices = dbapi.search(PriceList, prod_id=prod.prod_id)
         lowest = None
-        for prod_id in candidate_prod_ids:
-            prices = dbapi.search(PriceList, prod_id=prod_id)
-            for price in prices:
-                if price.precio1 is None:
-                    continue
-                raw_price = Decimal(price.precio1)
-                if lowest is None or raw_price < lowest:
-                    lowest = raw_price
-        if lowest is None:
-            return None
-        return int(lowest.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        for p in prices:
+            if lowest is None:
+                lowest = p.precio1
+            if p.precio1 > 0:
+                lowest = min([lowest, p.precio1])
+            if p.precio2 > 0:
+                lowest = min([lowest, p.precio2])
+        return lowest            
 
     def attach_price_details(doc):
         grand_total = 0

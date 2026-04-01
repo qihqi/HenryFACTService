@@ -107,7 +107,7 @@
                 <th width=150 class="cant">Cambio de Cantidad</th>
                 <th>Unidad</th>
                 <th data-price-hidden hidden>Precio</th>
-                <th data-price-hidden hidden>Total</th>
+                <th data-price-hidden hidden>SubTotal</th>
             </tr>
             {% for i in ingreso.items %}
             <tr>
@@ -128,7 +128,7 @@
             </tr>
             {%endfor %}
             <tr data-price-hidden hidden>
-                <td colspan="4" class="cant"><strong>Total general</strong></td>
+                <td colspan="4" class="cant"><strong>Total</strong></td>
                 <td colspan="2" class="cant">
                     {% if ingreso.meta.has_prices %}
                     <strong>{{ value_from_cents(ingreso.meta.grand_total_price_cents) }}</strong>
