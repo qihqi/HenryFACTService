@@ -27,6 +27,13 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
             self.price_cents = price_cents
             self.subtotal_cents = subtotal_cents
 
+    class BodegaTotalSection(object):
+        def __init__(self, bodega, rows, review_rows, total_cents):
+            self.bodega = bodega
+            self.rows = rows
+            self.review_rows = review_rows
+            self.total_cents = total_cents
+
     @w.get('/app/adv')
     @auth_decorator(0)
     def index():
@@ -164,12 +171,6 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
         if not bodegas:
             abort(400, 'No hay bodegas')
 
-        selected_bodega_id = request.query.get('bodega_id')
-        if selected_bodega_id is None:
-            selected_bodega_id = bodegas[0].id
-        else:
-            selected_bodega_id = int(selected_bodega_id)
-
         all_itemgroups = dbapi.search(ProdItemGroup)
         all_items = dbapi.search(ProdItem)
         all_prices = dbapi.search(PriceList)
@@ -202,42 +203,43 @@ def make_experimental_apps(dbapi, invapi, auth_decorator, jinja_env, transaction
                 return None
             return int(lowest.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
 
-        rows = []
-        review_rows = []
-        total_cents = 0
-        for itemgroup in all_itemgroups:
-            count_by_bodega, _, _ = transactionapi.get_current_quantity_and_change_dates(itemgroup.uid)
-            quantity = count_by_bodega.get(selected_bodega_id, Decimal(0))
-            if not quantity:
-                continue
-            price_cents = get_lowest_unit_price_cents(itemgroup)
-            if price_cents is None:
-                continue
-            subtotal_cents = int(
-                (Decimal(price_cents) * quantity).quantize(
-                    Decimal('1'), rounding=ROUND_HALF_UP))
-            row = BodegaTotalRow(
-                prod=itemgroup,
-                quantity=quantity,
-                price_cents=price_cents,
-                subtotal_cents=subtotal_cents)
-            if quantity < 0:
-                review_rows.append(row)
-                continue
-            total_cents += subtotal_cents
-            rows.append(row)
+        sections = []
+        for bodega in bodegas:
+            rows = []
+            review_rows = []
+            total_cents = 0
+            for itemgroup in all_itemgroups:
+                count_by_bodega, _, _ = transactionapi.get_current_quantity_and_change_dates(itemgroup.uid)
+                quantity = count_by_bodega.get(bodega.id, Decimal(0))
+                if not quantity:
+                    continue
+                price_cents = get_lowest_unit_price_cents(itemgroup)
+                if price_cents is None:
+                    continue
+                subtotal_cents = int(
+                    (Decimal(price_cents) * quantity).quantize(
+                        Decimal('1'), rounding=ROUND_HALF_UP))
+                row = BodegaTotalRow(
+                    prod=itemgroup,
+                    quantity=quantity,
+                    price_cents=price_cents,
+                    subtotal_cents=subtotal_cents)
+                if quantity < 0:
+                    review_rows.append(row)
+                    continue
+                total_cents += subtotal_cents
+                rows.append(row)
 
-        rows = sorted(rows, key=lambda row: row.subtotal_cents, reverse=True)
-        review_rows = sorted(review_rows, key=lambda row: row.subtotal_cents)
-        selected_bodega = dbapi.get(selected_bodega_id, Bodega)
+            rows = sorted(rows, key=lambda row: row.subtotal_cents, reverse=True)
+            review_rows = sorted(review_rows, key=lambda row: row.subtotal_cents)
+            sections.append(BodegaTotalSection(
+                bodega=bodega,
+                rows=rows,
+                review_rows=review_rows,
+                total_cents=total_cents))
+
         temp = jinja_env.get_template('bodega_total_report.html')
-        return temp.render(
-            bodegas=bodegas,
-            selected_bodega_id=selected_bodega_id,
-            selected_bodega=selected_bodega,
-            rows=rows,
-            review_rows=review_rows,
-            total_cents=total_cents)
+        return temp.render(sections=sections)
 
     @w.get('/app/pricelist')
     @dbcontext

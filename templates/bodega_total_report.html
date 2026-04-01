@@ -8,7 +8,8 @@
             text-align: center;
         }
         table {
-            margin: 0 auto;
+            margin: 0 auto 30px auto;
+            width: 800px;
         }
         .cant {
             text-align: right;
@@ -19,16 +20,13 @@
     </style>
 </head>
 <body>
-<form>
-    {% from "macros.html" import selector %}
-    Bodega: {{ selector(bodegas, 'bodega_id', 'id', 'nombre', selected_bodega_id) }}
-    <input type="submit" value="Ver" />
-</form>
+<h2>Total de la bodega</h2>
 
-<h3>Total de la bodega: {{ selected_bodega.nombre }}</h3>
-<h4>Total general: {{ value_from_cents(total_cents) }}</h4>
+{% for section in sections %}
+<h3>{{ section.bodega.nombre }}</h3>
+<h4>Total general: {{ value_from_cents(section.total_cents) }}</h4>
 
-<table width="800">
+<table>
     <tr>
         <th class="codigo">Codigo</th>
         <th>Producto</th>
@@ -36,7 +34,7 @@
         <th class="cant">Precio</th>
         <th class="cant">Subtotal</th>
     </tr>
-    {% for row in rows %}
+    {% for row in section.rows %}
     <tr>
         <td class="codigo">{{ row.prod.prod_id }}</td>
         <td>{{ row.prod.name }}</td>
@@ -47,13 +45,13 @@
     {% endfor %}
     <tr>
         <td colspan="4" class="cant"><strong>Total</strong></td>
-        <td class="cant"><strong>{{ value_from_cents(total_cents) }}</strong></td>
+        <td class="cant"><strong>{{ value_from_cents(section.total_cents) }}</strong></td>
     </tr>
 </table>
 
-{% if review_rows %}
-<h3>A revisar</h3>
-<table width="800">
+{% if section.review_rows %}
+<h4>A revisar: {{ section.bodega.nombre }}</h4>
+<table>
     <tr>
         <th class="codigo">Codigo</th>
         <th>Producto</th>
@@ -61,7 +59,7 @@
         <th class="cant">Precio</th>
         <th class="cant">Subtotal</th>
     </tr>
-    {% for row in review_rows %}
+    {% for row in section.review_rows %}
     <tr>
         <td class="codigo">{{ row.prod.prod_id }}</td>
         <td>{{ row.prod.name }}</td>
@@ -72,5 +70,6 @@
     {% endfor %}
 </table>
 {% endif %}
+{% endfor %}
 </body>
 </html>
