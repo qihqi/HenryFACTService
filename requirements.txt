@@ -18,7 +18,7 @@ Levenshtein==0.27.1
 lxml==5.4.0
 MarkupSafe==2.1.1
 matplotlib-inline==0.1.6
-mysql-connector-python==8.0.30
+mysql-connector-python==9.1.0
 mysqlclient==2.1.1
 parso==0.8.3
 pexpect==4.8.0
