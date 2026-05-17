@@ -23,7 +23,7 @@ mysqlclient==2.1.1
 parso==0.8.3
 pexpect==4.8.0
 pickleshare==0.7.5
-pillow==12.1.1
+pillow==12.2.0
 platformdirs==4.3.8
 prompt-toolkit==3.0.31
 protobuf==5.29.6
